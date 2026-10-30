@@ -1,0 +1,103 @@
+{
+    "20": {
+        "name": "Windows Update Installation Failure",
+        "cause": "Windows Update installation failed",
+        "severity": 60,
+        "solutions": [
+            "Review Windows Update logs",
+            "Run Windows Update Troubleshooter",
+            "Check Microsoft Store application status",
+            "Close running applications and retry update"
+        ]
+    },
+
+    "41": {
+        "name": "Kernel-Power",
+        "cause": "Unexpected shutdown",
+        "severity": 95,
+        "solutions": [
+            "Check power supply",
+            "Check CPU temperatures",
+            "Check RAM stability"
+        ]
+    },
+
+    "55": {
+        "name": "NTFS Corruption",
+        "cause": "File system corruption",
+        "severity": 90,
+        "solutions": [
+            "Run CHKDSK /F",
+            "Verify disk health"
+        ]
+    },
+
+    "7": {
+        "name": "Disk Error",
+        "cause": "Bad sectors detected",
+        "severity": 95,
+        "solutions": [
+            "Run CHKDSK",
+            "Check SMART status",
+            "Replace disk if necessary"
+        ]
+    },
+
+    "6008": {
+        "name": "Unexpected Shutdown",
+        "cause": "System was not properly shut down",
+        "severity": 85,
+        "solutions": [
+            "Review hardware",
+            "Check UPS",
+            "Check power source"
+        ]
+    },
+
+    "10016": {
+        "name": "DistributedCOM",
+        "cause": "Permission issue",
+        "severity": 35,
+        "solutions": [
+            "Review DCOM permissions"
+        ]
+    },
+
+    "19": {
+        "name": "Windows Update Successful Installation",
+        "cause": "An update was installed successfully",
+        "severity": 5,
+        "solutions": [
+            "No action required"
+        ]
+    },
+
+    "43": {
+        "name": "Windows Update Started",
+        "cause": "An update installation process started",
+        "severity": 5,
+        "solutions": [
+            "No action required"
+        ]
+    },
+
+    "44": {
+        "name": "Windows Update Installation Started",
+        "cause": "Windows Update installation initiated",
+        "severity": 5,
+        "solutions": [
+            "No action required"
+        ]
+    },
+
+    "7040": {
+        "name": "Service Configuration Change",
+        "cause": "A Windows service startup type was modified",
+        "severity": 20,
+        "solutions": [
+            "Verify the service change is expected",
+            "Review recent software installations",
+            "Check service dependencies"
+        ]
+    }
+}

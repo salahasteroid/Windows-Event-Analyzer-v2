@@ -1,0 +1,16 @@
+{
+    "0x80073d02": {
+        "description": "Application currently in use",
+        "recommendation": "Close the application and retry the update"
+    },
+
+    "0x80070005": {
+        "description": "Access denied",
+        "recommendation": "Verify permissions and run as Administrator"
+    },
+
+    "0x80240022": {
+        "description": "Windows Update service unavailable",
+        "recommendation": "Restart Windows Update services"
+    }
+}
