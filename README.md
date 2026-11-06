@@ -27,7 +27,7 @@ The application analyzes Windows Event Logs, correlates common issues, calculate
 
 ## Reporting
 
-- Console Report
+- Graphical Analysis Output
 - HTML Report
 - Dashboard Report
 - XML Export
@@ -43,18 +43,20 @@ EventAnalyzer
 │
 ├── database
 │   ├── event_definitions.json
-│   └── error_codes.json
+│   ├── error_codes.json
+│   └── error_code_lookup.py
 │
 ├── modules
 │   ├── analyzer.py
+│   ├── app_ui.py
 │   ├── correlation_engine.py
 │   ├── dashboard_generator.py
 │   ├── database_loader.py
-│   ├── error_code_lookup.py
 │   ├── event_reader.py
 │   ├── evtx_reader.py
 │   ├── health_score.py
 │   ├── internet_lookup.py
+│   ├── paths.py
 │   ├── recommendation_engine.py
 │   ├── report_generator.py
 │   └── xml_exporter.py
@@ -64,7 +66,47 @@ EventAnalyzer
 
 ---
 
-# Installation
+# Run as a standalone Windows app
+
+The standalone executable targets 64-bit Windows 10/11 without requiring
+Python or a separate runtime installation. This application uses Windows Event Log
+APIs and does not run on macOS or Linux.
+
+Run `WindowsEventAnalyzer.exe` on the target PC. The app opens a window where
+you can analyze the local System log or select an offline EVTX file. The built
+executable can be copied to another compatible PC or attached to a GitHub
+Release.
+
+To open an EVTX file directly:
+
+```cmd
+WindowsEventAnalyzer.exe "C:\Logs\System.evtx"
+```
+
+The app shows analysis output and writes reports to:
+
+```text
+%LOCALAPPDATA%\WindowsEventAnalyzer\reports
+```
+
+## Build the executable
+
+Build on a 64-bit Windows PC. Python is needed only on the build PC; users of
+the finished executable do not need Python or pip.
+
+```cmd
+build.bat
+```
+
+The standalone executable is created at:
+
+```text
+dist\WindowsEventAnalyzer.exe
+```
+
+---
+
+# Run from source
 
 Create virtual environment:
 
@@ -78,7 +120,7 @@ Activate:
 venv\Scripts\activate
 ```
 
-Install dependencies:
+Install runtime dependencies:
 
 ```cmd
 pip install -r requirements.txt
@@ -88,7 +130,7 @@ pip install -r requirements.txt
 
 # Usage
 
-## Analyze local Windows events
+## Analyze local Windows events from source
 
 ```cmd
 python main.py
@@ -104,7 +146,7 @@ reports/xml/
 
 ---
 
-## Analyze EVTX file
+## Analyze EVTX file from source
 
 Export an EVTX file from Event Viewer:
 

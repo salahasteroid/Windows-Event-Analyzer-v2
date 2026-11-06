@@ -1,30 +1,8 @@
 from modules.database_loader import (
     load_event_database
 )
-
-try:
-    from modules.error_code_lookup import (
-        get_error_info
-    )
-except ImportError:
-
-    def get_error_info(error_code):
-        return None
-
-try:
-    from modules.internet_lookup import (
-        lookup_event
-    )
-except ImportError:
-
-    def lookup_event(
-        event_id,
-        source
-    ):
-        return {
-            "search_url":
-            f"https://www.google.com/search?q={source}+Event+ID+{event_id}"
-        }
+from database.error_code_lookup import get_error_info
+from modules.internet_lookup import lookup_event
 
 
 def get_level_name(level):

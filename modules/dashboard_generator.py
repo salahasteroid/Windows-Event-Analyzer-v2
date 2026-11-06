@@ -1,18 +1,24 @@
-import os
+from html import escape
 from collections import Counter
+from pathlib import Path
+
+from modules.paths import get_reports_dir
 
 
 def generate_dashboard(
     events,
     health_score,
     correlations,
-    recommendations
+    recommendations,
+    output_dir=None
 ):
 
-    os.makedirs(
-        "reports",
-        exist_ok=True
+    output_dir = (
+        get_reports_dir()
+        if output_dir is None
+        else Path(output_dir)
     )
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     event_counter = Counter()
 
@@ -78,7 +84,7 @@ def generate_dashboard(
 
         <div class="card">
             <h2>Health Score</h2>
-            <h1>{health_score}%</h1>
+            <h1>{escape(str(health_score), quote=True)}%</h1>
         </div>
 
         <div class="card">
@@ -90,8 +96,8 @@ def generate_dashboard(
 
         html += (
             f"<li>"
-            f"Event {event_id} : "
-            f"{count} occurrences"
+            f"Event {escape(str(event_id), quote=True)} : "
+            f"{escape(str(count), quote=True)} occurrences"
             f"</li>"
         )
 
@@ -106,7 +112,7 @@ def generate_dashboard(
 
     for item in correlations:
 
-        html += f"<li>{item}</li>"
+        html += f"<li>{escape(str(item), quote=True)}</li>"
 
     html += """
             </ul>
@@ -119,7 +125,7 @@ def generate_dashboard(
 
     for item in recommendations:
 
-        html += f"<li>{item}</li>"
+        html += f"<li>{escape(str(item), quote=True)}</li>"
 
     html += f"""
             </ul>
@@ -163,7 +169,7 @@ def generate_dashboard(
     """
 
     with open(
-        "reports/dashboard.html",
+        output_dir / "dashboard.html",
         "w",
         encoding="utf-8"
     ) as file:

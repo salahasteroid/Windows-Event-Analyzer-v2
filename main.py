@@ -17,6 +17,10 @@ from modules.report_generator import (
     generate_html_report
 )
 
+from modules.dashboard_generator import (
+    generate_dashboard
+)
+
 from modules.health_score import (
     calculate_health_score
 )
@@ -33,16 +37,19 @@ from modules.correlation_engine import (
     correlate_events
 )
 
+from modules.paths import get_reports_dir
 
-def main():
+
+def main(evtx_file=None):
 
     print("=" * 80)
     print("WINDOWS EVENT ANALYZER")
     print("=" * 80)
 
-    if len(sys.argv) > 1:
-
+    if evtx_file is None and len(sys.argv) > 1:
         evtx_file = sys.argv[1]
+
+    if evtx_file:
 
         print(
             f"\nAnalyzing EVTX file:"
@@ -295,14 +302,35 @@ def main():
         report_events
     )
 
+    generate_dashboard(
+        report_events,
+        health_score,
+        correlation_results,
+        smart_recommendations
+    )
+
     print(
         "\nHTML report generated:"
     )
 
     print(
-        "reports/event_report.html"
+        str(get_reports_dir() / "event_report.html")
+    )
+
+    print(
+        str(get_reports_dir() / "dashboard.html")
     )
 
 
 if __name__ == "__main__":
-    main()
+    if getattr(sys, "frozen", False):
+        from modules.app_ui import run_app
+
+        initial_evtx = (
+            sys.argv[1]
+            if len(sys.argv) > 1
+            else None
+        )
+        run_app(main, initial_evtx)
+    else:
+        main()

@@ -1,16 +1,15 @@
 import json
-import os
+from modules.paths import resource_path
 
 
 def get_error_info(error_code):
 
-    file_path = (
-        "database/error_codes.json"
+    file_path = resource_path(
+        "database",
+        "error_codes.json"
     )
 
-    if not os.path.exists(
-        file_path
-    ):
+    if not file_path.exists():
         return None
 
     try:

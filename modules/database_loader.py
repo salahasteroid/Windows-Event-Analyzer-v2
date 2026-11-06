@@ -1,17 +1,15 @@
 import json
-import os
+from modules.paths import resource_path
 
 
 def load_event_database():
 
-    database_path = (
-        "database/event_definitions.json"
+    database_path = resource_path(
+        "database",
+        "event_definitions.json"
     )
 
-    if not os.path.exists(
-        database_path
-    ):
-
+    if not database_path.exists():
         print(
             f"Warning: {database_path} not found."
         )

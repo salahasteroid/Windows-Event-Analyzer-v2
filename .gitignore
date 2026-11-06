@@ -1,4 +1,6 @@
 /venv/
+/build/
+/dist/
 /logs/
 /reports/
 __pycache__/

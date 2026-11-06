@@ -1,12 +1,40 @@
-import os
+from html import escape
+from pathlib import Path
+from urllib.parse import urlsplit
+
+from modules.paths import get_reports_dir
 
 
-def generate_html_report(events):
+def _format_reference(search_url):
 
-    os.makedirs(
-        "reports",
-        exist_ok=True
+    if not isinstance(search_url, str) or not search_url:
+        return "Known Event"
+
+    try:
+        parsed_url = urlsplit(search_url)
+    except ValueError:
+        return "Invalid reference"
+
+    if (
+        parsed_url.scheme.lower() not in ("http", "https")
+        or not parsed_url.netloc
+    ):
+        return "Invalid reference"
+
+    return (
+        f'<a href="{escape(search_url, quote=True)}" '
+        f'target="_blank" rel="noopener noreferrer">Search</a>'
     )
+
+
+def generate_html_report(events, output_dir=None):
+
+    output_dir = (
+        get_reports_dir()
+        if output_dir is None
+        else Path(output_dir)
+    )
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     html = """
     <html>
@@ -89,29 +117,18 @@ def generate_html_report(events):
 
     for event in events:
 
-        severity = event["Analysis"][
-            "severity_text"
-        ]
+        analysis = event["Analysis"]
+        severity = str(analysis["severity_text"])
 
-        css_class = severity.lower()
-
-        search_url = event[
-            "Analysis"
-        ].get(
-            "search_url",
-            ""
+        css_class = (
+            severity.lower()
+            if severity in ("CRITICAL", "HIGH", "MEDIUM", "LOW")
+            else "low"
         )
 
-        if search_url:
-
-            reference = (
-                f'<a href="{search_url}" '
-                f'target="_blank">Search</a>'
-            )
-
-        else:
-
-            reference = "Known Event"
+        reference = _format_reference(
+            analysis.get("search_url", "")
+        )
 
         message = event.get(
             "Message",
@@ -119,38 +136,38 @@ def generate_html_report(events):
         )
 
         data = "<br>".join(
-            event.get(
-                "Data",
-                []
-            )
+            escape(str(item), quote=True)
+            for item in event.get("Data", [])
         )
 
-        error_code = (
-            event["Analysis"].get(
-                "error_code",
-                ""
-            )
+        event_id = escape(str(event["EventID"]), quote=True)
+        source = escape(str(event["Source"]), quote=True)
+        level_name = escape(str(event["LevelName"]), quote=True)
+        safe_severity = escape(severity, quote=True)
+        cause = escape(str(analysis["cause"]), quote=True)
+        safe_message = escape(str(message), quote=True)
+        error_code = escape(
+            str(analysis.get("error_code", "")),
+            quote=True
         )
-
-        error_description = (
-            event["Analysis"].get(
-                "error_description",
-                ""
-            )
+        error_description = escape(
+            str(analysis.get("error_description", "")),
+            quote=True
         )
+        event_time = escape(str(event["Time"]), quote=True)
 
         html += f"""
         <tr class="{css_class}">
-            <td>{event['EventID']}</td>
-            <td>{event['Source']}</td>
-            <td>{event['LevelName']}</td>
-            <td>{severity}</td>
-            <td>{event['Analysis']['cause']}</td>
-            <td>{message}</td>
+            <td>{event_id}</td>
+            <td>{source}</td>
+            <td>{level_name}</td>
+            <td>{safe_severity}</td>
+            <td>{cause}</td>
+            <td>{safe_message}</td>
             <td>{error_code}</td>
             <td>{error_description}</td>
             <td>{data}</td>
-            <td>{event['Time']}</td>
+            <td>{event_time}</td>
             <td>{reference}</td>
         </tr>
         """
@@ -163,7 +180,7 @@ def generate_html_report(events):
     """
 
     with open(
-        "reports/event_report.html",
+        output_dir / "event_report.html",
         "w",
         encoding="utf-8"
     ) as file:

@@ -1,25 +1,24 @@
-import os
 from datetime import datetime
+
+from modules.paths import get_reports_dir
 
 
 def export_xml(event):
 
-    os.makedirs(
-        "reports/xml",
-        exist_ok=True
-    )
+    output_dir = get_reports_dir() / "xml"
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.now().strftime(
         "%Y%m%d_%H%M%S_%f"
     )
 
-    file_name = (
-        f"reports/xml/"
-        f"Event_{event['EventID']}_{timestamp}.xml"
+    file_path = (
+        output_dir
+        / f"Event_{event['EventID']}_{timestamp}.xml"
     )
 
     with open(
-        file_name,
+        file_path,
         "w",
         encoding="utf-8"
     ) as file:
@@ -28,4 +27,4 @@ def export_xml(event):
             event["RawXML"]
         )
 
-    return file_name
+    return str(file_path)
