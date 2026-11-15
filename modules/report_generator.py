@@ -3,6 +3,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from modules.paths import get_reports_dir
+from modules.event_data import format_event_data_item
 
 
 def _format_reference(search_url):
@@ -23,7 +24,9 @@ def _format_reference(search_url):
 
     return (
         f'<a href="{escape(search_url, quote=True)}" '
-        f'target="_blank" rel="noopener noreferrer">Search</a>'
+        f'target="_blank" rel="noopener noreferrer">'
+        "Open reference"
+        "</a>"
     )
 
 
@@ -105,7 +108,8 @@ def generate_html_report(events, output_dir=None):
                 <th>Source</th>
                 <th>Level</th>
                 <th>Severity</th>
-                <th>Cause</th>
+                <th>Local cause</th>
+                <th>Online explanation</th>
                 <th>Message</th>
                 <th>Error Code</th>
                 <th>Error Description</th>
@@ -126,8 +130,11 @@ def generate_html_report(events, output_dir=None):
             else "low"
         )
 
+        online_lookup = analysis.get("online_lookup", {})
         reference = _format_reference(
-            analysis.get("search_url", "")
+            online_lookup.get("url")
+            or online_lookup.get("search_url")
+            or analysis.get("search_url", "")
         )
 
         message = event.get(
@@ -135,10 +142,62 @@ def generate_html_report(events, output_dir=None):
             ""
         )
 
+        event_data = event.get("Data", [])
         data = "<br>".join(
-            escape(str(item), quote=True)
-            for item in event.get("Data", [])
+            escape(
+                format_event_data_item(item, index),
+                quote=True
+            )
+            for index, item in enumerate(event_data, start=1)
         )
+        if event_data and not message:
+            data += (
+                "<br><em>Windows did not provide a plain-language "
+                "message; field meanings depend on the Event ID and source."
+                "</em>"
+            )
+
+        if online_lookup.get("status") == "found":
+            online_explanation = (
+                "<strong>"
+                + escape(online_lookup.get("title", ""), quote=True)
+                + "</strong><br>"
+                + escape(online_lookup.get("summary", ""), quote=True)
+            )
+            if online_lookup.get("cause"):
+                online_explanation += (
+                    "<br><strong>Main reason:</strong> "
+                    + escape(online_lookup["cause"], quote=True)
+                )
+            if online_lookup.get("resolution"):
+                online_explanation += (
+                    "<br><strong>Microsoft solution:</strong> "
+                    + escape(online_lookup["resolution"], quote=True)
+                )
+            elif online_lookup.get("article_error"):
+                online_explanation += (
+                    "<br>Could not load full article details: "
+                    + escape(online_lookup["article_error"], quote=True)
+                )
+            online_explanation += (
+                "<br><em>The exact fix may still depend on this event's "
+                "data and nearby events.</em>"
+            )
+        elif online_lookup.get("status") == "error":
+            online_explanation = (
+                "Online lookup failed: "
+                + escape(online_lookup.get("error", ""), quote=True)
+            )
+        elif online_lookup.get("status") == "no_match":
+            online_explanation = (
+                "No matching Microsoft Learn article was found."
+            )
+        elif online_lookup.get("status") == "skipped":
+            online_explanation = (
+                "Lookup skipped to keep analysis responsive."
+            )
+        else:
+            online_explanation = "No online lookup was performed."
 
         event_id = escape(str(event["EventID"]), quote=True)
         source = escape(str(event["Source"]), quote=True)
@@ -163,6 +222,7 @@ def generate_html_report(events, output_dir=None):
             <td>{level_name}</td>
             <td>{safe_severity}</td>
             <td>{cause}</td>
+            <td>{online_explanation}</td>
             <td>{safe_message}</td>
             <td>{error_code}</td>
             <td>{error_description}</td>

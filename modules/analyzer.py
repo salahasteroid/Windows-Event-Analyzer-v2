@@ -3,11 +3,13 @@ from modules.database_loader import (
 )
 from database.error_code_lookup import get_error_info
 from modules.internet_lookup import lookup_event
+from modules.event_data import get_event_data_value
 
 
 def get_level_name(level):
 
     levels = {
+        0: "Log Always",
         1: "Critical",
         2: "Error",
         3: "Warning",
@@ -35,7 +37,7 @@ def get_severity_text(score):
     return "LOW"
 
 
-def analyze_event(event):
+def analyze_event(event, online_lookup=None):
 
     event_database = (
         load_event_database()
@@ -45,18 +47,20 @@ def analyze_event(event):
 
     error_code = None
     error_info = None
+    if online_lookup is None:
+        online_lookup = lookup_event(
+            event_id,
+            event["Source"]
+        )
 
-    for item in event.get(
-        "Data",
-        []
-    ):
+    for item in event.get("Data", []):
+        item_value = get_event_data_value(item)
 
         if (
-            isinstance(item, str)
-            and item.startswith("0x")
+            item_value.startswith("0x")
         ):
 
-            error_code = item
+            error_code = item_value
 
             error_info = get_error_info(
                 error_code
@@ -80,26 +84,26 @@ def analyze_event(event):
 
     else:
 
-        lookup = lookup_event(
-            event_id,
-            event["Source"]
-        )
-
         result = {
             "known": False,
             "name": "Unknown Event",
-            "cause": "No analysis available",
+            "cause": (
+                "No local definition is available; see the online "
+                "explanation below."
+            ),
             "severity": 10,
             "severity_text": "LOW",
-            "search_url": lookup[
-                "search_url"
-            ],
+            "search_url": (
+                online_lookup.get("url")
+                or online_lookup.get("search_url", "")
+            ),
             "solutions": [
-                "Review Event Viewer details",
-                "Check Microsoft Learn",
-                "Search EventID.net"
+                "Review the event data and nearby events.",
+                "Use the Microsoft Learn reference below if one matched."
             ]
         }
+
+    result["online_lookup"] = online_lookup
 
     if error_info:
 

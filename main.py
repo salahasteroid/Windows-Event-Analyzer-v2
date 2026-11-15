@@ -38,9 +38,22 @@ from modules.correlation_engine import (
 )
 
 from modules.paths import get_reports_dir
+from modules.event_data import format_event_data_item
+from modules.internet_lookup import lookup_events
+from modules.time_range import resolve_time_range
+from modules.event_levels import normalize_event_levels
 
 
-def main(evtx_file=None):
+def main(
+    evtx_file=None,
+    start_time=None,
+    end_time=None,
+    selected_levels=None,
+    remote_options=None,
+    cancellation_event=None,
+    result_level_callback=None,
+    collection_finished_callback=None
+):
 
     print("=" * 80)
     print("WINDOWS EVENT ANALYZER")
@@ -48,6 +61,23 @@ def main(evtx_file=None):
 
     if evtx_file is None and len(sys.argv) > 1:
         evtx_file = sys.argv[1]
+
+    start_time, end_time = resolve_time_range(
+        start_time,
+        end_time
+    )
+    selected_levels = normalize_event_levels(selected_levels)
+    remote_options = remote_options or {}
+
+    if evtx_file and remote_options:
+        raise ValueError(
+            "Remote computer options can only be used with the live System log."
+        )
+
+    print(
+        "\nTime range (UTC): "
+        f"{start_time.isoformat()} to {end_time.isoformat()}\n"
+    )
 
     if evtx_file:
 
@@ -58,12 +88,40 @@ def main(evtx_file=None):
 
         events = read_evtx(
             evtx_file,
-            500
+            start_time=start_time,
+            end_time=end_time,
+            levels=selected_levels,
+            cancellation_event=cancellation_event
         )
 
     else:
 
-        events = get_recent_events(50)
+        events = get_recent_events(
+            start_time=start_time,
+            end_time=end_time,
+            levels=selected_levels,
+            remote_options=remote_options,
+            cancellation_event=cancellation_event
+        )
+
+    if collection_finished_callback is not None:
+        collection_finished_callback()
+
+    if (
+        cancellation_event is not None
+        and cancellation_event.is_set()
+    ):
+        print(
+            "\nCollection stopped. Partial results were discarded; "
+            "no report was generated."
+        )
+        return
+
+    if remote_options:
+        print(
+            "Remote System Log: "
+            f"{remote_options['computer']}"
+        )
 
     health_score = (
         calculate_health_score(
@@ -83,8 +141,21 @@ def main(evtx_file=None):
         )
     )
 
+    lookup_candidates = [
+        event
+        for event in events
+        if event["Level"] in (1, 2, 3)
+    ]
+    if lookup_candidates:
+        print(
+            "\nSearching Microsoft Learn for event explanations...\n"
+        )
+        online_lookups = lookup_events(lookup_candidates)
+    else:
+        online_lookups = {}
+
     print(
-        f"\nRaw Events Read: "
+        f"\nEvents Matching Selected Levels: "
         f"{len(events)}\n"
     )
 
@@ -99,11 +170,14 @@ def main(evtx_file=None):
 
     for event in events:
 
-        if event["Level"] > 3:
+        if event["Level"] not in selected_levels:
             continue
 
         analysis = analyze_event(
-            event
+            event,
+            online_lookups.get(
+                (event["EventID"], event["Source"])
+            )
         )
 
         if "RawXML" in event:
@@ -150,6 +224,9 @@ def main(evtx_file=None):
 
         displayed += 1
 
+        if result_level_callback is not None:
+            result_level_callback(event["Level"])
+
         print("=" * 80)
 
         print(
@@ -195,28 +272,73 @@ def main(evtx_file=None):
 
         print()
 
-        print("Event Data:")
+        print("Event Data (technical details):")
 
         if event.get("Data"):
 
-            for item in event["Data"]:
+            for index, item in enumerate(event["Data"], start=1):
 
                 print(
-                    f"  - {item}"
+                    f"  - {format_event_data_item(item, index)}"
+                )
+
+            if not event.get("Message"):
+                print(
+                    "  Windows did not provide a plain-language message. "
+                    "The exact meaning of these fields depends on the "
+                    "Event ID and source shown above."
                 )
 
         else:
 
             print(
-                "  No Event Data"
+                "  No extra details were recorded for this event."
             )
 
         print()
 
         print(
-            f"Cause    : "
+            f"Cause (local analysis): "
             f"{analysis['cause']}"
         )
+
+        print()
+
+        online_lookup = analysis["online_lookup"]
+        print("Online lookup (Microsoft Learn):")
+
+        if online_lookup["status"] == "found":
+            print(f"  {online_lookup['title']}")
+            print(f"  {online_lookup['summary']}")
+            if online_lookup.get("cause"):
+                print(f"  Main reason: {online_lookup['cause']}")
+            if online_lookup.get("resolution"):
+                print(f"  Microsoft solution: {online_lookup['resolution']}")
+            elif online_lookup.get("article_error"):
+                print(
+                    "  Could not load the full article details: "
+                    f"{online_lookup['article_error']}"
+                )
+            print(f"  Source: {online_lookup['url']}")
+            print(
+                "  Exact fix depends on this event's data and nearby "
+                "events; follow the linked article's troubleshooting steps."
+            )
+        elif online_lookup["status"] == "no_match":
+            print(
+                "  No matching Microsoft Learn article was found. "
+                f"Search: {online_lookup['search_url']}"
+            )
+        elif online_lookup["status"] == "skipped":
+            print(
+                "  Skipped to keep the analysis responsive. "
+                f"Search: {online_lookup['search_url']}"
+            )
+        else:
+            print(
+                "  Lookup failed: "
+                f"{online_lookup['error']}"
+            )
 
         print()
 
@@ -229,7 +351,7 @@ def main(evtx_file=None):
         print()
 
         print(
-            "Recommendations:"
+            "Suggested next steps (general guidance):"
         )
 
         for solution in analysis[
@@ -241,6 +363,9 @@ def main(evtx_file=None):
             )
 
         print()
+
+        if result_level_callback is not None:
+            result_level_callback(None)
 
     print("=" * 80)
 
@@ -293,7 +418,7 @@ def main(evtx_file=None):
 
     print(
         f"Displayed {displayed} "
-        f"Critical/Error/Warning Events"
+        f"event(s) matching the selected levels"
     )
 
     print("=" * 80)

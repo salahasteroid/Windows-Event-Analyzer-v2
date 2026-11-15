@@ -1,29 +1,9 @@
 import win32evtlog
 import xml.etree.ElementTree as ET
 
-
-def extract_event_data(root, ns):
-
-    data = []
-
-    try:
-
-        event_data = root.find(
-            ".//e:EventData",
-            ns
-        )
-
-        if event_data is not None:
-
-            for item in event_data:
-
-                if item.text:
-                    data.append(item.text)
-
-    except Exception:
-        pass
-
-    return data
+from modules.event_data import extract_event_data
+from modules.event_levels import normalize_event_levels
+from modules.time_range import format_event_log_time, resolve_time_range
 
 
 def extract_message(root, ns):
@@ -51,27 +31,114 @@ def extract_message(root, ns):
     return ""
 
 
-def get_recent_events(max_events=50):
+def get_recent_events(
+    max_events=None,
+    start_time=None,
+    end_time=None,
+    levels=None,
+    remote_options=None,
+    cancellation_event=None
+):
 
     events = []
 
-    handle = win32evtlog.EvtQuery(
-        "System",
-        win32evtlog.EvtQueryReverseDirection,
-        "*"
+    start_time, end_time = resolve_time_range(
+        start_time,
+        end_time
+    )
+    if levels is not None:
+        levels = normalize_event_levels(levels)
+
+    conditions = [
+        "TimeCreated[@SystemTime >= "
+        f"'{format_event_log_time(start_time)}' and @SystemTime <= "
+        f"'{format_event_log_time(end_time)}']"
+    ]
+    if levels is not None:
+        level_conditions = " or ".join(
+            f"Level={level}"
+            for level in levels
+        )
+        conditions.append(f"({level_conditions})")
+
+    query = (
+        "*[System["
+        + " and ".join(conditions)
+        + "]]"
     )
 
-    while len(events) < max_events:
+    if cancellation_event is not None and cancellation_event.is_set():
+        return events
 
-        records = win32evtlog.EvtNext(
-            handle,
-            10
+    session = None
+    if remote_options:
+        computer = remote_options.get("computer")
+        username = remote_options.get("username")
+        password = remote_options.get("password")
+        domain = remote_options.get("domain") or None
+
+        if not computer or not username or not password:
+            raise ValueError(
+                "Remote log access requires a computer IP, username, "
+                "and password."
+            )
+
+        login = (
+            computer,
+            username,
+            domain,
+            password,
+            win32evtlog.EvtRpcLoginAuthNegotiate,
         )
+        session = win32evtlog.EvtOpenSession(
+            login,
+            win32evtlog.EvtRpcLogin,
+            0,
+            0,
+        )
+        if session is None:
+            raise RuntimeError("Could not open the remote Event Log session.")
+
+    if cancellation_event is not None and cancellation_event.is_set():
+        return events
+
+    if session is None:
+        handle = win32evtlog.EvtQuery(
+            "System",
+            win32evtlog.EvtQueryReverseDirection,
+            query
+        )
+    else:
+        handle = win32evtlog.EvtQuery(
+            "System",
+            win32evtlog.EvtQueryReverseDirection,
+            query,
+            session
+        )
+
+    while (
+        (max_events is None or len(events) < max_events)
+        and not (
+            cancellation_event is not None
+            and cancellation_event.is_set()
+        )
+    ):
+
+        records = win32evtlog.EvtNext(handle, 10, 1000)
 
         if not records:
             break
 
         for record in records:
+
+            if (
+                cancellation_event is not None
+                and cancellation_event.is_set()
+            ):
+                break
+
+            if max_events is not None and len(events) >= max_events:
+                break
 
             try:
 
@@ -157,8 +224,5 @@ def get_recent_events(max_events=50):
                 print(
                     f"Read Error: {ex}"
                 )
-
-        if len(events) >= max_events:
-            break
 
     return events

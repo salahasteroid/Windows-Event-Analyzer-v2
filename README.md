@@ -12,8 +12,17 @@ The application analyzes Windows Event Logs, correlates common issues, calculate
 
 - Read live Windows System Event Logs
 - Read offline EVTX files
+- By default, analyze events from the previous 24 hours; in the executable,
+  enter a custom start and end time (local time) for either source
+- Filter by Windows event level; Critical, Error and Warning are selected by
+  default
+- Filter the result pane by level after analysis, and stop collection with the
+  Stop button or the Esc key
+- Query one authorized remote computer by IP using a local or domain account;
+  credentials are entered for the run and the password is not saved
 - Extract Event ID, Source, Level, Computer and Timestamp
-- Extract Event Data
+- Extract Event Data with available field names and plain-language hints for
+  common raw values such as hexadecimal numbers and GUIDs
 - Export raw XML
 
 ## Event Analysis
@@ -24,6 +33,12 @@ The application analyzes Windows Event Logs, correlates common issues, calculate
 - Root-Cause Correlation
 - Health Score Calculation
 - Recommendations Engine
+- Automatic Microsoft Learn lookup for up to 20 of the most common unique
+  warning/error event IDs per analysis
+- Shows the article's Cause and Resolution sections when available
+
+Online lookup requires an internet connection. It sends only the event ID and
+provider name to Microsoft Learn; raw event data is not sent.
 
 ## Reporting
 
@@ -53,12 +68,15 @@ EventAnalyzer
 │   ├── dashboard_generator.py
 │   ├── database_loader.py
 │   ├── event_reader.py
+│   ├── event_levels.py
+│   ├── event_data.py
 │   ├── evtx_reader.py
 │   ├── health_score.py
 │   ├── internet_lookup.py
 │   ├── paths.py
 │   ├── recommendation_engine.py
 │   ├── report_generator.py
+│   ├── time_range.py
 │   └── xml_exporter.py
 │
 └── reports
@@ -73,9 +91,17 @@ Python or a separate runtime installation. This application uses Windows Event L
 APIs and does not run on macOS or Linux.
 
 Run `WindowsEventAnalyzer.exe` on the target PC. The app opens a window where
-you can analyze the local System log or select an offline EVTX file. The built
-executable can be copied to another compatible PC or attached to a GitHub
-Release.
+you can analyze the local System log, select an offline EVTX file, filter by
+event level, or query one remote System log.
+
+Remote access requires authorization, valid credentials, and the target's
+**Remote Event Log Management** firewall rule. For a local account, enter the
+username and leave the Domain field blank. For a domain account, enter the
+domain name or use a UPN. The password is masked and cleared after starting
+analysis. Credentials are not saved.
+
+The built executable can be copied to another compatible PC or attached to a
+GitHub Release.
 
 To open an EVTX file directly:
 
@@ -136,7 +162,7 @@ pip install -r requirements.txt
 python main.py
 ```
 
-The tool reads the latest System log events and generates:
+The tool reads System log events from the previous 24 hours and generates:
 
 ```text
 reports/event_report.html
@@ -162,6 +188,9 @@ Then run:
 ```cmd
 python main.py System.evtx
 ```
+
+The executable's start and end time fields also apply to EVTX files. Times are
+entered in local time; records outside the selected period are excluded.
 
 or
 
@@ -254,7 +283,7 @@ Summary dashboard including:
 
 # Version
 
-Windows Event Analyzer v1.0
+Windows Event Analyzer Version 2
 
 ---
 
