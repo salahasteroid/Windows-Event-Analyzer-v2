@@ -273,7 +273,7 @@ class EventAnalyzerApp:
         )
         self.output.pack(fill="both", expand=True, padx=12, pady=(0, 12))
 
-        root.bind("<Escape>", self.stop_collection)
+        root.bind_all("<Escape>", self.stop_collection, add="+")
         self.root.after(100, self.poll_output)
 
         if initial_evtx:
@@ -502,7 +502,6 @@ class EventAnalyzerApp:
             elif message_type == "event_level":
                 self.current_output_level = value
             elif message_type == "collection_finished":
-                self.stop_button.configure(state="disabled")
                 if (
                     self.cancellation_event is not None
                     and not self.cancellation_event.is_set()
@@ -518,7 +517,7 @@ class EventAnalyzerApp:
                     )
                 elif value == "cancelled":
                     self.status.set(
-                        "Collection stopped. Partial results were discarded."
+                        "Analysis stopped. Partial results were discarded."
                     )
                 else:
                     self.status.set(
@@ -558,13 +557,15 @@ class EventAnalyzerApp:
         if (
             not self.running
             or self.cancellation_event is None
-            or self.collection_finished_event.is_set()
+            or self.cancellation_event.is_set()
         ):
             return
 
         self.cancellation_event.set()
         self.stop_button.configure(state="disabled")
-        self.status.set("Stopping collection...")
+        self.status.set("Stopping analysis...")
+        if event is not None:
+            return "break"
 
     def signal_collection_finished(self):
         self.collection_finished_event.set()

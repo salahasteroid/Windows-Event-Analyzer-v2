@@ -117,6 +117,21 @@ def main(
         )
         return
 
+    def stop_if_cancelled():
+        if (
+            cancellation_event is None
+            or not cancellation_event.is_set()
+        ):
+            return False
+
+        if result_level_callback is not None:
+            result_level_callback(None)
+        print(
+            "\nAnalysis stopped. Partial results were discarded; "
+            "no report was generated."
+        )
+        return True
+
     if remote_options:
         print(
             "Remote System Log: "
@@ -128,18 +143,24 @@ def main(
             events
         )
     )
+    if stop_if_cancelled():
+        return
 
     smart_recommendations = (
         build_recommendations(
             events
         )
     )
+    if stop_if_cancelled():
+        return
 
     correlation_results = (
         correlate_events(
             events
         )
     )
+    if stop_if_cancelled():
+        return
 
     lookup_candidates = [
         event
@@ -150,9 +171,14 @@ def main(
         print(
             "\nSearching Microsoft Learn for event explanations...\n"
         )
-        online_lookups = lookup_events(lookup_candidates)
+        online_lookups = lookup_events(
+            lookup_candidates,
+            cancellation_event=cancellation_event,
+        )
     else:
         online_lookups = {}
+    if stop_if_cancelled():
+        return
 
     print(
         f"\nEvents Matching Selected Levels: "
@@ -169,6 +195,9 @@ def main(
     report_events = []
 
     for event in events:
+
+        if stop_if_cancelled():
+            return
 
         if event["Level"] not in selected_levels:
             continue
@@ -422,6 +451,9 @@ def main(
     )
 
     print("=" * 80)
+
+    if stop_if_cancelled():
+        return
 
     generate_html_report(
         report_events

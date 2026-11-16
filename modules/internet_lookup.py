@@ -1,7 +1,7 @@
 import json
 import re
 from collections import Counter
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from html.parser import HTMLParser
 from urllib.error import URLError
 from urllib.parse import urlencode, urlsplit
@@ -253,7 +253,10 @@ def lookup_event(event_id, source):
     }
 
 
-def lookup_events(events):
+def lookup_events(events, cancellation_event=None):
+    if cancellation_event is not None and cancellation_event.is_set():
+        return {}
+
     event_counts = Counter(
         (event["EventID"], event["Source"])
         for event in events
@@ -279,18 +282,40 @@ def lookup_events(events):
         for key in ordered_keys[_MAX_LOOKUPS_PER_RUN:]
     }
 
-    with ThreadPoolExecutor(
+    executor = ThreadPoolExecutor(
         max_workers=min(_MAX_WORKERS, len(selected_keys))
-    ) as executor:
-        pending = {
-            executor.submit(lookup_event, event_id, source): (
-                event_id,
-                source
-            )
-            for event_id, source in selected_keys
-        }
+    )
+    pending = {
+        executor.submit(lookup_event, event_id, source): (
+            event_id,
+            source
+        )
+        for event_id, source in selected_keys
+    }
 
-        for future in as_completed(pending):
-            results[pending[future]] = future.result()
+    try:
+        while pending:
+            if (
+                cancellation_event is not None
+                and cancellation_event.is_set()
+            ):
+                break
+
+            completed, _ = wait(
+                pending,
+                timeout=0.1,
+                return_when=FIRST_COMPLETED,
+            )
+            for future in completed:
+                results[pending.pop(future)] = future.result()
+    finally:
+        cancelled = (
+            cancellation_event is not None
+            and cancellation_event.is_set()
+        )
+        if cancelled:
+            for future in pending:
+                future.cancel()
+        executor.shutdown(wait=not cancelled)
 
     return results

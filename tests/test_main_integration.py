@@ -37,6 +37,52 @@ class MainIntegrationTests(TestCase):
         generate_report.assert_not_called()
         self.assertIn("Partial results were discarded", output.getvalue())
 
+    def test_cancel_during_processing_does_not_generate_reports(self):
+        cancellation_event = Event()
+        event = {
+            "EventID": 41,
+            "Level": 2,
+            "Source": "Microsoft-Windows-Kernel-Power",
+            "Computer": "TEST-PC",
+            "Time": "2026-11-14T20:00:00Z",
+            "Data": [],
+            "Message": "",
+        }
+        output = io.StringIO()
+
+        def finish_lookup(*_args, **_kwargs):
+            cancellation_event.set()
+            return {}
+
+        with ExitStack() as stack:
+            stack.enter_context(
+                patch.object(main, "read_evtx", return_value=[event])
+            )
+            lookup = stack.enter_context(
+                patch.object(main, "lookup_events", side_effect=finish_lookup)
+            )
+            generate_report = stack.enter_context(
+                patch.object(main, "generate_html_report")
+            )
+            generate_dashboard = stack.enter_context(
+                patch.object(main, "generate_dashboard")
+            )
+            stack.enter_context(redirect_stdout(output))
+
+            main.main(
+                "sample.evtx",
+                selected_levels=(2,),
+                cancellation_event=cancellation_event,
+            )
+
+        lookup.assert_called_once_with(
+            [event],
+            cancellation_event=cancellation_event,
+        )
+        generate_report.assert_not_called()
+        generate_dashboard.assert_not_called()
+        self.assertIn("Analysis stopped", output.getvalue())
+
     def test_analysis_creates_reports_with_online_explanation(self):
         source = "Microsoft-Windows-Kernel-Power"
         event = {

@@ -16,8 +16,8 @@ The application analyzes Windows Event Logs, correlates common issues, calculate
   enter a custom start and end time (local time) for either source
 - Filter by Windows event level; Critical, Error and Warning are selected by
   default
-- Filter the result pane by level after analysis, and stop collection with the
-  Stop button or the Esc key
+- Filter the result pane by level after analysis, and stop collection or
+  processing with the Stop button or the Esc key
 - Query one authorized remote computer by IP using a local or domain account;
   credentials are entered for the run and the password is not saved
 - Extract Event ID, Source, Level, Computer and Timestamp

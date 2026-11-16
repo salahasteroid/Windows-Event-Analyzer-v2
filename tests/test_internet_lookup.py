@@ -1,5 +1,7 @@
 import json
+from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
+from threading import Event
 from unittest import TestCase
 from unittest.mock import patch
 
@@ -114,3 +116,33 @@ class InternetLookupTests(TestCase):
             sum(result["status"] == "skipped" for result in results.values()),
             5
         )
+
+    @patch("modules.internet_lookup.lookup_event")
+    def test_cancels_pending_lookups_without_waiting_for_active_requests(
+        self,
+        lookup,
+    ):
+        cancellation_event = Event()
+        request_started = Event()
+        finish_request = Event()
+
+        def wait_for_finish(*_args):
+            request_started.set()
+            finish_request.wait()
+            return {"status": "no_match"}
+
+        lookup.side_effect = wait_for_finish
+        worker = ThreadPoolExecutor(max_workers=1)
+        try:
+            result = worker.submit(
+                lookup_events,
+                [{"EventID": 41, "Source": "Kernel-Power"}],
+                cancellation_event,
+            )
+            self.assertTrue(request_started.wait(timeout=1))
+            cancellation_event.set()
+
+            self.assertEqual(result.result(timeout=1), {})
+        finally:
+            finish_request.set()
+            worker.shutdown(wait=True)
