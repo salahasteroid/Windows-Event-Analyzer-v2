@@ -1,4 +1,5 @@
 import sys
+from pathlib import Path
 
 from modules.event_reader import (
     get_recent_events
@@ -52,7 +53,9 @@ def main(
     remote_options=None,
     cancellation_event=None,
     result_level_callback=None,
-    collection_finished_callback=None
+    collection_finished_callback=None,
+    collected_events=None,
+    output_dir=None,
 ):
 
     print("=" * 80)
@@ -79,7 +82,9 @@ def main(
         f"{start_time.isoformat()} to {end_time.isoformat()}\n"
     )
 
-    if evtx_file:
+    if collected_events is not None:
+        events = collected_events
+    elif evtx_file:
 
         print(
             f"\nAnalyzing EVTX file:"
@@ -210,7 +215,7 @@ def main(
         )
 
         if "RawXML" in event:
-            export_xml(event)
+            export_xml(event, output_dir=output_dir)
 
         report_events.append({
             "EventID": event["EventID"],
@@ -455,15 +460,22 @@ def main(
     if stop_if_cancelled():
         return
 
+    report_dir = (
+        get_reports_dir()
+        if output_dir is None
+        else Path(output_dir)
+    )
     generate_html_report(
-        report_events
+        report_events,
+        output_dir=report_dir,
     )
 
     generate_dashboard(
         report_events,
         health_score,
         correlation_results,
-        smart_recommendations
+        smart_recommendations,
+        output_dir=report_dir,
     )
 
     print(
@@ -471,11 +483,11 @@ def main(
     )
 
     print(
-        str(get_reports_dir() / "event_report.html")
+        str(report_dir / "event_report.html")
     )
 
     print(
-        str(get_reports_dir() / "dashboard.html")
+        str(report_dir / "dashboard.html")
     )
 
 

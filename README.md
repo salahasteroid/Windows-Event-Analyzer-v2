@@ -18,8 +18,10 @@ The application analyzes Windows Event Logs, correlates common issues, calculate
   default
 - Filter the result pane by level after analysis, and stop collection or
   processing with the Stop button or the Esc key
-- Query one authorized remote computer by IP using a local or domain account;
-  credentials are entered for the run and the password is not saved
+- Query up to 20 authorized remote computers by IP using a local or domain
+  account; event collection runs concurrently for up to five computers
+- Optionally remember the IP list and domain locally, or forget both from the
+  app; passwords are entered for each run and are never saved
 - Extract Event ID, Source, Level, Computer and Timestamp
 - Extract Event Data with available field names and plain-language hints for
   common raw values such as hexadecimal numbers and GUIDs
@@ -92,13 +94,20 @@ APIs and does not run on macOS or Linux.
 
 Run `WindowsEventAnalyzer.exe` on the target PC. The app opens a window where
 you can analyze the local System log, select an offline EVTX file, filter by
-event level, or query one remote System log.
+event level, or query a list of remote System logs.
+
+For remote collection, enter one IP address per line (commas and semicolons
+also work), enter credentials shared by the targets, then select **Analyze
+Remote PCs**. Collection runs in parallel for up to five PCs at once and is
+limited to 20 IPs per run. Each computer's reports are kept in a separate
+folder under `reports\remote`.
 
 Remote access requires authorization, valid credentials, and the target's
 **Remote Event Log Management** firewall rule. For a local account, enter the
 username and leave the Domain field blank. For a domain account, enter the
-domain name or use a UPN. The password is masked and cleared after starting
-analysis. Credentials are not saved.
+domain name or use a UPN. Use the Remember checkboxes to retain the IP list or
+domain locally; **Forget saved IPs/domain** removes them. Passwords are masked,
+cleared after starting analysis, and never saved.
 
 The built executable can be copied to another compatible PC or attached to a
 GitHub Release.

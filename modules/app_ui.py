@@ -1,8 +1,8 @@
-import ipaddress
 import os
 import queue
 import threading
 import traceback
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import redirect_stderr, redirect_stdout
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -24,6 +24,17 @@ from tkinter.scrolledtext import ScrolledText
 
 from modules.paths import get_reports_dir
 from modules.event_levels import DEFAULT_EVENT_LEVELS, EVENT_LEVEL_NAMES
+from modules.event_reader import get_recent_events
+from modules.remote_settings import (
+    forget_remote_settings,
+    load_remote_settings,
+    save_remote_settings,
+)
+from modules.remote_targets import (
+    MAX_PARALLEL_REMOTE_TARGETS,
+    parse_remote_targets,
+    remote_report_dir,
+)
 
 
 class _QueueWriter:
@@ -51,6 +62,19 @@ class EventAnalyzerApp:
         self.collection_finished_event = threading.Event()
         self.output_segments = []
         self.current_output_level = None
+        self.preferred_dashboard_path = None
+
+        try:
+            remote_settings = load_remote_settings()
+            remote_settings_error = None
+        except (OSError, ValueError) as error:
+            remote_settings = {
+                "targets": [],
+                "domain": "",
+                "remember_targets": True,
+                "remember_domain": True,
+            }
+            remote_settings_error = str(error)
 
         root.title("Windows Event Analyzer")
         root.geometry("1000x700")
@@ -72,6 +96,16 @@ class EventAnalyzerApp:
             command=self.select_evtx_file,
         )
         self.evtx_button.pack(side="left", padx=(0, 8))
+
+        self.remote_button = Button(
+            toolbar,
+            text="Analyze Remote PCs",
+            command=lambda: self.start_analysis(
+                None,
+                remote_mode=True,
+            ),
+        )
+        self.remote_button.pack(side="left", padx=(0, 8))
 
         self.stop_button = Button(
             toolbar,
@@ -144,19 +178,32 @@ class EventAnalyzerApp:
         )
         remote_frame.pack(fill="x", padx=12, pady=(0, 8))
 
-        Label(remote_frame, text="Computer IP:").grid(
+        Label(remote_frame, text="Computer IPs (one per line):").grid(
             row=0,
             column=0,
+            columnspan=2,
             sticky="w",
-            padx=(0, 4),
+            pady=(0, 4),
         )
-        self.remote_ip = StringVar()
-        self.remote_ip_entry = Entry(
+        self.remote_targets = ScrolledText(
             remote_frame,
-            textvariable=self.remote_ip,
-            width=16,
+            width=34,
+            height=4,
+            wrap="word",
         )
-        self.remote_ip_entry.grid(row=0, column=1, padx=(0, 12))
+        self.remote_targets.grid(
+            row=1,
+            column=0,
+            columnspan=2,
+            rowspan=3,
+            sticky="nsew",
+            padx=(0, 16),
+        )
+        if remote_settings["targets"]:
+            self.remote_targets.insert(
+                "1.0",
+                "\n".join(remote_settings["targets"]),
+            )
 
         Label(remote_frame, text="Domain:").grid(
             row=0,
@@ -168,9 +215,15 @@ class EventAnalyzerApp:
         self.remote_domain_entry = Entry(
             remote_frame,
             textvariable=self.remote_domain,
-            width=16,
+            width=24,
         )
-        self.remote_domain_entry.grid(row=0, column=3, padx=(0, 12))
+        self.remote_domain_entry.grid(
+            row=0,
+            column=3,
+            sticky="ew",
+            padx=(0, 12),
+        )
+        self.remote_domain.set(remote_settings["domain"])
 
         Label(remote_frame, text="Username:").grid(
             row=0,
@@ -182,9 +235,14 @@ class EventAnalyzerApp:
         self.remote_username_entry = Entry(
             remote_frame,
             textvariable=self.remote_username,
-            width=18,
+            width=20,
         )
-        self.remote_username_entry.grid(row=0, column=5, padx=(0, 12))
+        self.remote_username_entry.grid(
+            row=0,
+            column=5,
+            sticky="ew",
+            padx=(0, 12),
+        )
 
         Label(remote_frame, text="Password:").grid(
             row=0,
@@ -196,29 +254,82 @@ class EventAnalyzerApp:
         self.remote_password_entry = Entry(
             remote_frame,
             textvariable=self.remote_password,
-            width=18,
+            width=20,
             show="*",
         )
-        self.remote_password_entry.grid(row=0, column=7)
+        self.remote_password_entry.grid(
+            row=0,
+            column=7,
+            sticky="ew",
+        )
+
+        self.remember_targets = BooleanVar(
+            value=remote_settings["remember_targets"]
+        )
+        self.remember_targets_checkbutton = Checkbutton(
+            remote_frame,
+            text="Remember IP list",
+            variable=self.remember_targets,
+        )
+        self.remember_targets_checkbutton.grid(
+            row=4,
+            column=0,
+            sticky="w",
+            pady=(6, 0),
+        )
+
+        self.remember_domain = BooleanVar(
+            value=remote_settings["remember_domain"]
+        )
+        self.remember_domain_checkbutton = Checkbutton(
+            remote_frame,
+            text="Remember domain",
+            variable=self.remember_domain,
+        )
+        self.remember_domain_checkbutton.grid(
+            row=4,
+            column=1,
+            sticky="w",
+            pady=(6, 0),
+        )
+
+        self.forget_remote_button = Button(
+            remote_frame,
+            text="Forget saved IPs/domain",
+            command=self.forget_saved_remote_values,
+        )
+        self.forget_remote_button.grid(
+            row=4,
+            column=2,
+            columnspan=2,
+            sticky="w",
+            pady=(6, 0),
+        )
 
         Label(
             remote_frame,
             text=(
                 "Use only on systems you are authorized to administer. "
-                "Remote Event Log Management must be enabled. For a local "
-                "account, leave Domain blank. For a domain account, enter "
-                "the domain name or use a UPN."
+                "Remote Event Log Management must be enabled. Enter IPs "
+                "separated by new lines, commas, or semicolons. Collections "
+                f"run in parallel (up to {MAX_PARALLEL_REMOTE_TARGETS} PCs). "
+                "Credentials are shared for this run and passwords are "
+                "never saved. Leave Domain blank for local accounts."
             ),
             anchor="w",
             justify="left",
             wraplength=940,
         ).grid(
-            row=1,
+            row=5,
             column=0,
             columnspan=8,
             sticky="w",
             pady=(6, 0),
         )
+        remote_frame.columnconfigure(1, weight=1)
+        remote_frame.columnconfigure(3, weight=1)
+        remote_frame.columnconfigure(5, weight=1)
+        remote_frame.columnconfigure(7, weight=1)
 
         self.reports_button = Button(
             toolbar,
@@ -283,6 +394,16 @@ class EventAnalyzerApp:
                 Path(initial_evtx),
             )
 
+        if remote_settings_error:
+            self.root.after(
+                100,
+                lambda: messagebox.showerror(
+                    "Could not load saved remote settings",
+                    remote_settings_error,
+                    parent=self.root,
+                ),
+            )
+
     def select_evtx_file(self):
         file_path = filedialog.askopenfilename(
             title="Select a Windows Event Log file",
@@ -295,7 +416,7 @@ class EventAnalyzerApp:
         if file_path:
             self.start_analysis(Path(file_path))
 
-    def start_analysis(self, evtx_file):
+    def start_analysis(self, evtx_file, remote_mode=False):
         if self.running:
             return
 
@@ -346,34 +467,29 @@ class EventAnalyzerApp:
             )
             return
 
-        remote_ip = self.remote_ip.get().strip()
         remote_username = self.remote_username.get().strip()
         remote_domain = self.remote_domain.get().strip()
         remote_password = self.remote_password.get()
-        remote_fields = (
-            remote_ip,
-            remote_username,
-            remote_domain,
-            remote_password,
-        )
+        remote_targets = []
         remote_options = None
 
-        if evtx_file is not None and any(remote_fields):
-            messagebox.showerror(
-                "Remote options not applicable",
-                "Clear the remote computer and credential fields to analyze "
-                "an EVTX file.",
-                parent=self.root,
-            )
-            return
-
-        if remote_ip:
+        if remote_mode:
             try:
-                remote_ip = str(ipaddress.ip_address(remote_ip))
-            except ValueError:
+                remote_targets = parse_remote_targets(
+                    self.remote_targets.get("1.0", "end")
+                )
+            except ValueError as error:
                 messagebox.showerror(
-                    "Invalid computer IP",
-                    "Enter a valid IPv4 or IPv6 address.",
+                    "Invalid remote target list",
+                    str(error),
+                    parent=self.root,
+                )
+                return
+
+            if not remote_targets:
+                messagebox.showerror(
+                    "Remote targets required",
+                    "Enter one or more authorized computer IP addresses.",
                     parent=self.root,
                 )
                 return
@@ -381,32 +497,45 @@ class EventAnalyzerApp:
             if not remote_username or not remote_password:
                 messagebox.showerror(
                     "Remote credentials required",
-                    "Enter a username and password for the remote computer.",
+                    "Enter a username and password for the remote computers.",
                     parent=self.root,
                 )
                 return
 
             remote_options = {
-                "computer": remote_ip,
                 "username": remote_username,
                 "domain": remote_domain or None,
                 "password": remote_password,
             }
-        elif any(remote_fields):
-            messagebox.showerror(
-                "Remote computer required",
-                "Enter a computer IP when using remote credentials.",
-                parent=self.root,
-            )
-            return
+
+            try:
+                save_remote_settings(
+                    remote_targets,
+                    remote_domain,
+                    self.remember_targets.get(),
+                    self.remember_domain.get(),
+                )
+            except OSError as error:
+                messagebox.showerror(
+                    "Could not save remote preferences",
+                    str(error),
+                    parent=self.root,
+                )
+                return
 
         self.running = True
         self.cancellation_event = threading.Event()
         self.collection_finished_event.clear()
         self.set_buttons_enabled(False)
-        self.status.set("Collecting events...")
+        if remote_targets:
+            self.status.set(
+                f"Collecting events from {len(remote_targets)} remote PC(s)..."
+            )
+        else:
+            self.status.set("Collecting events...")
         self.output_segments = []
         self.current_output_level = None
+        self.preferred_dashboard_path = None
         for variable in self.result_level_vars.values():
             variable.set(True)
         self.output.configure(state="normal")
@@ -421,6 +550,7 @@ class EventAnalyzerApp:
                 end_time,
                 selected_levels,
                 remote_options,
+                remote_targets,
                 self.cancellation_event,
             ),
             daemon=True,
@@ -435,12 +565,24 @@ class EventAnalyzerApp:
         end_time,
         selected_levels,
         remote_options,
+        remote_targets,
         cancellation_event
     ):
         writer = _QueueWriter(self.output_queue)
 
         try:
             with redirect_stdout(writer), redirect_stderr(writer):
+                if remote_targets:
+                    self.run_remote_analysis(
+                        start_time,
+                        end_time,
+                        selected_levels,
+                        remote_options,
+                        remote_targets,
+                        cancellation_event,
+                    )
+                    return
+
                 self.analyze(
                     evtx_file,
                     start_time,
@@ -483,6 +625,129 @@ class EventAnalyzerApp:
             )
             self.output_queue.put(("finished", result))
 
+    def run_remote_analysis(
+        self,
+        start_time,
+        end_time,
+        selected_levels,
+        remote_options,
+        remote_targets,
+        cancellation_event,
+    ):
+        collected_events = {}
+        failures = []
+        worker_count = min(
+            MAX_PARALLEL_REMOTE_TARGETS,
+            len(remote_targets),
+        )
+
+        print(
+            f"Collecting from {len(remote_targets)} remote PC(s) "
+            f"with up to {worker_count} concurrent connections."
+        )
+
+        with ThreadPoolExecutor(max_workers=worker_count) as executor:
+            futures = {
+                executor.submit(
+                    get_recent_events,
+                    start_time=start_time,
+                    end_time=end_time,
+                    levels=selected_levels,
+                    remote_options={
+                        **remote_options,
+                        "computer": target,
+                    },
+                    cancellation_event=cancellation_event,
+                ): target
+                for target in remote_targets
+            }
+
+            for future in as_completed(futures):
+                target = futures[future]
+                try:
+                    collected_events[target] = future.result()
+                    print(
+                        f"Collected {len(collected_events[target])} event(s) "
+                        f"from {target}."
+                    )
+                except Exception as error:
+                    failures.append(target)
+                    print(
+                        f"Collection failed for {target}: {error}"
+                    )
+
+        self.signal_collection_finished()
+
+        if cancellation_event.is_set():
+            print(
+                "\nCollection stopped. Partial results were discarded; "
+                "no reports were generated."
+            )
+            self.output_queue.put(("finished", "cancelled"))
+            return
+
+        if not collected_events:
+            self.output_queue.put(("finished", "failed"))
+            return
+
+        successful_hosts = 0
+        reports_root = get_reports_dir()
+
+        for target in remote_targets:
+            if target not in collected_events:
+                continue
+            if cancellation_event.is_set():
+                break
+
+            host_reports = remote_report_dir(reports_root, target)
+            host_options = {
+                **remote_options,
+                "computer": target,
+            }
+            print(
+                "\n"
+                + "=" * 80
+                + f"\nAnalyzing collected events from {target}\n"
+            )
+
+            try:
+                self.analyze(
+                    None,
+                    start_time,
+                    end_time,
+                    selected_levels=selected_levels,
+                    remote_options=host_options,
+                    cancellation_event=cancellation_event,
+                    result_level_callback=lambda level: (
+                        self.output_queue.put(("event_level", level))
+                    ),
+                    collected_events=collected_events[target],
+                    output_dir=host_reports,
+                )
+            except Exception as error:
+                failures.append(target)
+                print(
+                    f"Analysis failed for {target}: {error}\n"
+                    f"{traceback.format_exc()}"
+                )
+                continue
+
+            successful_hosts += 1
+            self.output_queue.put(
+                ("dashboard", str(host_reports / "dashboard.html"))
+            )
+
+        if cancellation_event.is_set():
+            result = "cancelled"
+        elif successful_hosts == 0:
+            result = "failed"
+        elif failures:
+            result = "partial"
+        else:
+            result = "success"
+
+        self.output_queue.put(("finished", result))
+
     def poll_output(self):
         while True:
             try:
@@ -507,13 +772,26 @@ class EventAnalyzerApp:
                     and not self.cancellation_event.is_set()
                 ):
                     self.status.set("Processing collected events...")
+            elif message_type == "dashboard":
+                self.preferred_dashboard_path = Path(value)
             elif message_type == "finished":
                 self.running = False
                 self.set_buttons_enabled(True)
                 self.current_output_level = None
                 if value == "success":
+                    if self.preferred_dashboard_path is not None:
+                        self.status.set(
+                            "Remote analysis complete. Reports: "
+                            f"{get_reports_dir() / 'remote'}"
+                        )
+                    else:
+                        self.status.set(
+                            f"Analysis complete. Reports: {get_reports_dir()}"
+                        )
+                elif value == "partial":
                     self.status.set(
-                        f"Analysis complete. Reports: {get_reports_dir()}"
+                        "Some remote PCs failed. Successful reports are saved "
+                        f"under {get_reports_dir() / 'remote'}."
                     )
                 elif value == "cancelled":
                     self.status.set(
@@ -575,6 +853,7 @@ class EventAnalyzerApp:
         state = "normal" if enabled else "disabled"
         self.live_button.configure(state=state)
         self.evtx_button.configure(state=state)
+        self.remote_button.configure(state=state)
         self.stop_button.configure(state="disabled" if enabled else "normal")
         self.start_time_entry.configure(state=state)
         self.end_time_entry.configure(state=state)
@@ -582,12 +861,39 @@ class EventAnalyzerApp:
             checkbutton.configure(state=state)
         for checkbutton in self.result_level_checkbuttons:
             checkbutton.configure(state=state)
-        self.remote_ip_entry.configure(state=state)
+        self.remote_targets.configure(state=state)
         self.remote_domain_entry.configure(state=state)
         self.remote_username_entry.configure(state=state)
         self.remote_password_entry.configure(state=state)
+        self.remember_targets_checkbutton.configure(state=state)
+        self.remember_domain_checkbutton.configure(state=state)
+        self.forget_remote_button.configure(state=state)
         self.reports_button.configure(state=state)
         self.dashboard_button.configure(state=state)
+
+    def forget_saved_remote_values(self):
+        if not messagebox.askyesno(
+            "Forget saved remote values",
+            "Remove the saved IP list and domain from this PC?",
+            parent=self.root,
+        ):
+            return
+
+        try:
+            forget_remote_settings()
+        except OSError as error:
+            messagebox.showerror(
+                "Could not forget saved values",
+                str(error),
+                parent=self.root,
+            )
+            return
+
+        self.remote_targets.delete("1.0", END)
+        self.remote_domain.set("")
+        self.remember_targets.set(False)
+        self.remember_domain.set(False)
+        self.status.set("Saved remote IPs and domain were forgotten.")
 
     def open_reports_folder(self):
         reports_dir = get_reports_dir()
@@ -602,7 +908,9 @@ class EventAnalyzerApp:
             )
 
     def open_dashboard(self):
-        dashboard_path = get_reports_dir() / "dashboard.html"
+        dashboard_path = self.preferred_dashboard_path
+        if dashboard_path is None or not dashboard_path.is_file():
+            dashboard_path = get_reports_dir() / "dashboard.html"
 
         if not dashboard_path.is_file():
             messagebox.showinfo(

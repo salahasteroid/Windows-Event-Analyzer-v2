@@ -12,6 +12,43 @@ from modules import dashboard_generator, report_generator
 
 class MainIntegrationTests(TestCase):
 
+    def test_precollected_events_write_reports_to_target_directory(self):
+        output = io.StringIO()
+
+        with TemporaryDirectory() as directory:
+            reports_dir = Path(directory) / "host-192.0.2.10"
+            with ExitStack() as stack:
+                collect_events = stack.enter_context(
+                    patch.object(main, "get_recent_events")
+                )
+                generate_report = stack.enter_context(
+                    patch.object(main, "generate_html_report")
+                )
+                generate_dashboard = stack.enter_context(
+                    patch.object(main, "generate_dashboard")
+                )
+                stack.enter_context(
+                    patch.object(main.sys, "argv", ["main.py"])
+                )
+                stack.enter_context(redirect_stdout(output))
+
+                main.main(
+                    collected_events=[],
+                    output_dir=reports_dir,
+                    remote_options={"computer": "192.0.2.10"},
+                )
+
+        collect_events.assert_not_called()
+        generate_report.assert_called_once_with(
+            [],
+            output_dir=reports_dir,
+        )
+        self.assertEqual(
+            generate_dashboard.call_args.kwargs["output_dir"],
+            reports_dir,
+        )
+        self.assertIn(str(reports_dir / "event_report.html"), output.getvalue())
+
     def test_cancelled_collection_does_not_generate_reports(self):
         cancellation_event = Event()
         output = io.StringIO()

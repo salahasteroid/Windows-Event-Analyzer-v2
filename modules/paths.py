@@ -13,10 +13,7 @@ def resource_path(*parts):
     return root.joinpath(*parts)
 
 
-def get_reports_dir():
-
-    if not getattr(sys, "frozen", False):
-        return Path("reports")
+def get_user_data_dir():
 
     local_app_data = os.environ.get("LOCALAPPDATA")
 
@@ -25,4 +22,12 @@ def get_reports_dir():
     else:
         root = Path.home() / "AppData" / "Local"
 
-    return root / "WindowsEventAnalyzer" / "reports"
+    return root / "WindowsEventAnalyzer"
+
+
+def get_reports_dir():
+
+    if not getattr(sys, "frozen", False):
+        return Path("reports")
+
+    return get_user_data_dir() / "reports"
