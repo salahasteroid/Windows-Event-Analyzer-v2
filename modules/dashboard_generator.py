@@ -5,12 +5,102 @@ from pathlib import Path
 from modules.paths import get_reports_dir
 
 
+def _text(value):
+
+    return escape(str(value), quote=True)
+
+
+def _breakdown_html(score_breakdown):
+    """List of what lowered the health score."""
+
+    if not score_breakdown:
+        return ""
+
+    items = []
+
+    for item in score_breakdown.get("events", [])[:10]:
+        items.append(
+            f"<li>{_text(item['source'])} Event "
+            f"{_text(item['event_id'])} "
+            f"(x{_text(item['count'])}, severity "
+            f"{_text(item['severity'])}) : "
+            f"-{_text(item['penalty'])}</li>"
+        )
+
+    for item in score_breakdown.get("rules", []):
+        items.append(
+            f"<li>Pattern: {_text(item['title'])} : "
+            f"-{_text(item['penalty'])}</li>"
+        )
+
+    if not items:
+        items.append("<li>No deductions.</li>")
+
+    return (
+        '<div class="card"><h2>What lowered the score</h2><ul>'
+        + "".join(items)
+        + "</ul></div>"
+    )
+
+
+def _trend_items(entries):
+
+    return "".join(
+        f"<li>{_text(entry['source'])} Event {_text(entry['event_id'])} : "
+        f"{_text(entry['previous_count'])} &rarr; "
+        f"{_text(entry['count'])}</li>"
+        for entry in entries
+    )
+
+
+def _trends_html(trends):
+    """Comparison with the previous comparable run."""
+
+    if not trends:
+        return ""
+
+    if not trends.get("available"):
+        return (
+            '<div class="card"><h2>Trends</h2><p>'
+            + _text(trends.get("message", "No trend data."))
+            + "</p></div>"
+        )
+
+    sections = []
+
+    for key, title in (
+        ("new", "New since the previous run"),
+        ("increased", "Increased"),
+        ("decreased", "Decreased"),
+        ("resolved", "No longer seen"),
+    ):
+        entries = trends.get(key) or []
+
+        if entries:
+            sections.append(
+                f"<h3>{title}</h3><ul>{_trend_items(entries)}</ul>"
+            )
+
+    if not sections:
+        sections.append("<p>No significant change.</p>")
+
+    return (
+        '<div class="card"><h2>Trends</h2><p>'
+        + _text(trends.get("message", ""))
+        + "</p>"
+        + "".join(sections)
+        + "</div>"
+    )
+
+
 def generate_dashboard(
     events,
     health_score,
     correlations,
     recommendations,
-    output_dir=None
+    output_dir=None,
+    score_breakdown=None,
+    trends=None
 ):
 
     output_dir = (
@@ -87,6 +177,8 @@ def generate_dashboard(
             <h1>{escape(str(health_score), quote=True)}%</h1>
         </div>
 
+        {_breakdown_html(score_breakdown)}
+
         <div class="card">
             <h2>Top 10 Event IDs</h2>
             <ul>
@@ -130,6 +222,8 @@ def generate_dashboard(
     html += f"""
             </ul>
         </div>
+
+        {_trends_html(trends)}
 
         <div class="card">
 

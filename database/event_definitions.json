@@ -1,6 +1,99 @@
 {
+    "7": {
+        "name": "Disk Error",
+        "sources": [
+            "disk"
+        ],
+        "cause": "Bad sectors detected",
+        "severity": 95,
+        "solutions": [
+            "Run CHKDSK",
+            "Check SMART status",
+            "Replace disk if necessary"
+        ]
+    },
+    "11": {
+        "name": "Disk controller error",
+        "sources": [
+            "disk"
+        ],
+        "cause": "The driver detected a controller error on a disk",
+        "severity": 85,
+        "solutions": [
+            "Check cables and the controller",
+            "Check SMART status",
+            "Update storage controller driver and firmware"
+        ]
+    },
+    "15": {
+        "name": "Disk not ready",
+        "sources": [
+            "disk"
+        ],
+        "cause": "A disk was not ready for access",
+        "severity": 60,
+        "solutions": [
+            "Check cables, power and the enclosure",
+            "Check SMART status"
+        ]
+    },
+    "17": {
+        "name": "Corrected PCI Express error (WHEA)",
+        "sources": [
+            "Microsoft-Windows-WHEA-Logger"
+        ],
+        "cause": "A PCI Express device reported an error that the hardware corrected",
+        "severity": 40,
+        "solutions": [
+            "Check the device named in the event",
+            "Update device drivers and firmware",
+            "Reseat the card if the error repeats"
+        ]
+    },
+    "18": {
+        "name": "Fatal hardware error (WHEA)",
+        "sources": [
+            "Microsoft-Windows-WHEA-Logger"
+        ],
+        "cause": "The hardware reported a fatal error through Windows Hardware Error Architecture",
+        "severity": 95,
+        "solutions": [
+            "Open the event details to see the failing component",
+            "Run vendor hardware diagnostics",
+            "Check CPU, memory and PCIe devices; update firmware"
+        ]
+    },
+    "19": [
+        {
+            "name": "Corrected hardware error (WHEA)",
+            "sources": [
+                "Microsoft-Windows-WHEA-Logger"
+            ],
+            "cause": "The hardware reported an error that it corrected",
+            "severity": 55,
+            "solutions": [
+                "Open the event details to see the component",
+                "Check cooling and power",
+                "Update BIOS/firmware if the error repeats"
+            ]
+        },
+        {
+            "name": "Windows Update Successful Installation",
+            "sources": [
+                "Microsoft-Windows-WindowsUpdateClient"
+            ],
+            "cause": "An update was installed successfully",
+            "severity": 5,
+            "solutions": [
+                "No action required"
+            ]
+        }
+    ],
     "20": {
         "name": "Windows Update Installation Failure",
+        "sources": [
+            "Microsoft-Windows-WindowsUpdateClient"
+        ],
         "cause": "Windows Update installation failed",
         "severity": 60,
         "solutions": [
@@ -10,9 +103,53 @@
             "Close running applications and retry update"
         ]
     },
-
+    "36": [
+        {
+            "name": "Shadow copies aborted",
+            "sources": [
+                "volsnap"
+            ],
+            "cause": "Shadow copies were aborted because the storage area could not grow",
+            "severity": 55,
+            "solutions": [
+                "Free space on the volume",
+                "Increase or move the shadow copy storage area",
+                "Review backup schedules"
+            ]
+        },
+        {
+            "name": "Time service stopped advertising as good time source",
+            "sources": [
+                "Microsoft-Windows-Time-Service",
+                "w32time"
+            ],
+            "cause": "The Windows Time service lost its reliable time source",
+            "severity": 40,
+            "solutions": [
+                "Check the configured time source",
+                "Check network access to the time server",
+                "Run w32tm /query /status"
+            ]
+        }
+    ],
+    "37": {
+        "name": "Processor speed limited by firmware",
+        "sources": [
+            "Microsoft-Windows-Kernel-Processor-Power"
+        ],
+        "cause": "The CPU is being slowed by firmware, usually because of heat or a power limit",
+        "severity": 35,
+        "solutions": [
+            "Check cooling, fans and dust",
+            "Check power plan and power supply capacity",
+            "Update BIOS/firmware"
+        ]
+    },
     "41": {
         "name": "Kernel-Power",
+        "sources": [
+            "Microsoft-Windows-Kernel-Power"
+        ],
         "cause": "Unexpected shutdown",
         "severity": 95,
         "solutions": [
@@ -21,9 +158,71 @@
             "Check RAM stability"
         ]
     },
-
+    "43": {
+        "name": "Windows Update Started",
+        "sources": [
+            "Microsoft-Windows-WindowsUpdateClient"
+        ],
+        "cause": "An update installation process started",
+        "severity": 5,
+        "solutions": [
+            "No action required"
+        ]
+    },
+    "44": {
+        "name": "Windows Update Installation Started",
+        "sources": [
+            "Microsoft-Windows-WindowsUpdateClient"
+        ],
+        "cause": "Windows Update installation initiated",
+        "severity": 5,
+        "solutions": [
+            "No action required"
+        ]
+    },
+    "46": {
+        "name": "Crash dump initialization failed",
+        "sources": [
+            "volmgr"
+        ],
+        "cause": "Windows could not prepare to write a memory dump if the system crashes",
+        "severity": 40,
+        "solutions": [
+            "Check the paging file size and the system drive free space",
+            "Check the crash dump settings"
+        ]
+    },
+    "51": {
+        "name": "Disk error during paging",
+        "sources": [
+            "disk"
+        ],
+        "cause": "An error occurred on a disk while reading or writing virtual memory",
+        "severity": 90,
+        "solutions": [
+            "Check SMART status",
+            "Run CHKDSK",
+            "Check cables and the controller"
+        ]
+    },
+    "52": {
+        "name": "Disk predicts failure",
+        "sources": [
+            "disk"
+        ],
+        "cause": "The disk reported that it expects to fail (SMART)",
+        "severity": 98,
+        "solutions": [
+            "Back up critical data immediately",
+            "Replace the disk as soon as possible"
+        ]
+    },
     "55": {
         "name": "NTFS Corruption",
+        "sources": [
+            "Ntfs",
+            "Microsoft-Windows-Ntfs"
+        ],
         "cause": "File system corruption",
         "severity": 90,
         "solutions": [
@@ -31,20 +230,291 @@
             "Verify disk health"
         ]
     },
-
-    "7": {
-        "name": "Disk Error",
-        "cause": "Bad sectors detected",
-        "severity": 95,
+    "104": {
+        "name": "Event log cleared",
+        "sources": [
+            "Microsoft-Windows-Eventlog"
+        ],
+        "cause": "An event log was cleared",
+        "severity": 65,
         "solutions": [
-            "Run CHKDSK",
-            "Check SMART status",
-            "Replace disk if necessary"
+            "Confirm the clearing was authorized",
+            "Check who cleared it and when"
         ]
     },
-
+    "129": [
+        {
+            "name": "Storage device reset",
+            "sources": [
+                "storahci",
+                "stornvme"
+            ],
+            "cause": "Windows had to reset a storage device because it did not respond",
+            "severity": 70,
+            "solutions": [
+                "Check SMART status and device firmware",
+                "Update storage controller driver",
+                "Check cables, power and drive health"
+            ]
+        },
+        {
+            "name": "Time service: domain peer unavailable",
+            "sources": [
+                "Microsoft-Windows-Time-Service",
+                "w32time"
+            ],
+            "cause": "The time client could not select a domain time source",
+            "severity": 35,
+            "solutions": [
+                "Check connectivity to the domain controller",
+                "Check DNS",
+                "Run w32tm /resync"
+            ]
+        }
+    ],
+    "134": {
+        "name": "Time service: manual peer unavailable",
+        "sources": [
+            "Microsoft-Windows-Time-Service",
+            "w32time"
+        ],
+        "cause": "The time client could not use the configured time server",
+        "severity": 35,
+        "solutions": [
+            "Check DNS resolution of the time server name",
+            "Check network access to the time server"
+        ]
+    },
+    "153": {
+        "name": "Disk I/O retried",
+        "sources": [
+            "disk"
+        ],
+        "cause": "A disk input/output operation had to be retried",
+        "severity": 75,
+        "solutions": [
+            "Check SMART status",
+            "Check cables, backplane and controller",
+            "Update storage driver and firmware"
+        ]
+    },
+    "154": {
+        "name": "Disk I/O failed (hardware error)",
+        "sources": [
+            "disk"
+        ],
+        "cause": "A disk input/output operation failed because of a hardware error",
+        "severity": 90,
+        "solutions": [
+            "Back up data",
+            "Check SMART status",
+            "Check cables and the controller; replace the disk if errors continue"
+        ]
+    },
+    "157": {
+        "name": "Disk removed unexpectedly",
+        "sources": [
+            "disk"
+        ],
+        "cause": "A disk was removed without being ejected first",
+        "severity": 70,
+        "solutions": [
+            "Check cables, the enclosure and power",
+            "Check the storage controller"
+        ]
+    },
+    "161": {
+        "name": "Crash dump creation failed",
+        "sources": [
+            "volmgr"
+        ],
+        "cause": "Windows could not create a memory dump after a crash",
+        "severity": 35,
+        "solutions": [
+            "Check the paging file size and free space on the system drive",
+            "Check the crash dump settings"
+        ]
+    },
+    "219": {
+        "name": "Driver failed to load for a device",
+        "sources": [
+            "Microsoft-Windows-Kernel-PnP"
+        ],
+        "cause": "Windows could not load a driver for a device",
+        "severity": 45,
+        "solutions": [
+            "Identify the device and driver in the event",
+            "Update or reinstall the driver",
+            "Check Device Manager for the device"
+        ]
+    },
+    "1001": {
+        "name": "System crash (bugcheck) recorded",
+        "sources": [
+            "Microsoft-Windows-WER-SystemErrorReporting",
+            "BugCheck"
+        ],
+        "cause": "The computer restarted after a stop error (blue screen)",
+        "severity": 90,
+        "solutions": [
+            "Note the bugcheck code in the event data and look it up",
+            "Update or roll back recently installed drivers and updates",
+            "Analyze the memory dump with WinDbg",
+            "Run memory diagnostics if the code points to memory"
+        ]
+    },
+    "1014": {
+        "name": "DNS name resolution timed out",
+        "sources": [
+            "Microsoft-Windows-DNS-Client"
+        ],
+        "cause": "None of the configured DNS servers answered in time",
+        "severity": 35,
+        "solutions": [
+            "Check the DNS server addresses on the adapter",
+            "Test connectivity to the DNS servers",
+            "Check the network link and firewall"
+        ]
+    },
+    "1030": {
+        "name": "Group Policy: could not query policy objects",
+        "sources": [
+            "Microsoft-Windows-GroupPolicy"
+        ],
+        "cause": "Windows could not read the list of Group Policy objects",
+        "severity": 40,
+        "solutions": [
+            "Read the previous Group Policy events for the cause",
+            "Check DNS, time and domain controller reachability"
+        ]
+    },
+    "1058": {
+        "name": "Group Policy: could not read policy file",
+        "sources": [
+            "Microsoft-Windows-GroupPolicy"
+        ],
+        "cause": "Windows could not read a Group Policy file from SYSVOL",
+        "severity": 50,
+        "solutions": [
+            "Check that SYSVOL is reachable from this computer",
+            "Check DNS, DFS and permissions on SYSVOL"
+        ]
+    },
+    "1074": {
+        "name": "Planned shutdown or restart",
+        "sources": [
+            "User32"
+        ],
+        "cause": "A user or process started a shutdown or restart",
+        "severity": 10,
+        "solutions": [
+            "Check the reason and the process or user named in the event if it was not expected"
+        ]
+    },
+    "1129": {
+        "name": "Group Policy: no domain controller connection",
+        "sources": [
+            "Microsoft-Windows-GroupPolicy"
+        ],
+        "cause": "Group Policy could not be processed because the domain controller was not reachable",
+        "severity": 40,
+        "solutions": [
+            "Check network connectivity and DNS",
+            "Check that the computer can reach a domain controller",
+            "Run gpupdate /force after fixing connectivity"
+        ]
+    },
+    "2013": {
+        "name": "Disk at or near capacity",
+        "sources": [
+            "Srv"
+        ],
+        "cause": "A disk is almost full",
+        "severity": 50,
+        "solutions": [
+            "Free space on the drive named in the event",
+            "Move or archive old data",
+            "Extend the volume"
+        ]
+    },
+    "4101": {
+        "name": "Display driver stopped responding and recovered",
+        "sources": [
+            "Display"
+        ],
+        "cause": "The graphics driver stopped responding and Windows reset it",
+        "severity": 40,
+        "solutions": [
+            "Update the graphics driver",
+            "Check GPU temperature and power",
+            "Check for faulty monitors or cables if it repeats"
+        ]
+    },
+    "4199": {
+        "name": "IP address conflict",
+        "sources": [
+            "Tcpip"
+        ],
+        "cause": "Another device on the network uses the same IP address",
+        "severity": 40,
+        "solutions": [
+            "Find the device with the conflicting address (MAC address is in the event)",
+            "Check DHCP scope and static address assignments"
+        ]
+    },
+    "5719": {
+        "name": "Netlogon: no domain controller available",
+        "sources": [
+            "NETLOGON"
+        ],
+        "cause": "The computer could not set up a secure session with a domain controller",
+        "severity": 65,
+        "solutions": [
+            "Check network connectivity and DNS",
+            "Check that a domain controller is reachable",
+            "Check that the computer account is valid"
+        ]
+    },
+    "5805": {
+        "name": "Netlogon: machine session setup failed",
+        "sources": [
+            "NETLOGON"
+        ],
+        "cause": "A computer failed to authenticate to the domain",
+        "severity": 55,
+        "solutions": [
+            "Check that the computer account exists and is enabled",
+            "Reset the machine secure channel if needed",
+            "Check time synchronization"
+        ]
+    },
+    "6005": {
+        "name": "Event Log service started",
+        "sources": [
+            "EventLog"
+        ],
+        "cause": "The Event Log service started, which normally happens at boot",
+        "severity": 5,
+        "solutions": [
+            "No action needed; use it as a boot time marker"
+        ]
+    },
+    "6006": {
+        "name": "Event Log service stopped",
+        "sources": [
+            "EventLog"
+        ],
+        "cause": "The Event Log service stopped, which normally happens at a clean shutdown",
+        "severity": 5,
+        "solutions": [
+            "No action needed; a missing 6006 before a boot suggests an unclean shutdown"
+        ]
+    },
     "6008": {
         "name": "Unexpected Shutdown",
+        "sources": [
+            "EventLog"
+        ],
         "cause": "System was not properly shut down",
         "severity": 85,
         "solutions": [
@@ -53,51 +523,247 @@
             "Check power source"
         ]
     },
-
-    "10016": {
-        "name": "DistributedCOM",
-        "cause": "Permission issue",
-        "severity": 35,
-        "solutions": [
-            "Review DCOM permissions"
-        ]
-    },
-
-    "19": {
-        "name": "Windows Update Successful Installation",
-        "cause": "An update was installed successfully",
+    "6013": {
+        "name": "System uptime",
+        "sources": [
+            "EventLog"
+        ],
+        "cause": "Daily report of how long the system has been running",
         "severity": 5,
         "solutions": [
-            "No action required"
+            "No action needed"
         ]
     },
-
-    "43": {
-        "name": "Windows Update Started",
-        "cause": "An update installation process started",
+    "7000": {
+        "name": "Service failed to start",
+        "sources": [
+            "Service Control Manager"
+        ],
+        "cause": "A service could not start",
+        "severity": 55,
+        "solutions": [
+            "Read the error in the event text",
+            "Check the service account and its dependencies",
+            "Review events from the service's own provider"
+        ]
+    },
+    "7001": {
+        "name": "Service dependency failed",
+        "sources": [
+            "Service Control Manager"
+        ],
+        "cause": "A service could not start because a service it depends on failed",
+        "severity": 50,
+        "solutions": [
+            "Fix the service it depends on first",
+            "Check dependencies in the service's properties"
+        ]
+    },
+    "7009": {
+        "name": "Service start timeout",
+        "sources": [
+            "Service Control Manager"
+        ],
+        "cause": "A service did not respond to the start request in time",
+        "severity": 45,
+        "solutions": [
+            "Check the system for heavy load at boot",
+            "Review the service and its dependencies",
+            "Check events from the service's own provider"
+        ]
+    },
+    "7011": {
+        "name": "Service request timeout",
+        "sources": [
+            "Service Control Manager"
+        ],
+        "cause": "A service did not reply to a control request in time",
+        "severity": 45,
+        "solutions": [
+            "Check the service for hangs or high load",
+            "Check events from the service's own provider"
+        ]
+    },
+    "7022": {
+        "name": "Service hung on starting",
+        "sources": [
+            "Service Control Manager"
+        ],
+        "cause": "A service started but never finished starting",
+        "severity": 55,
+        "solutions": [
+            "Check the service and its dependencies",
+            "Review events from the service's own provider"
+        ]
+    },
+    "7023": {
+        "name": "Service terminated with an error",
+        "sources": [
+            "Service Control Manager"
+        ],
+        "cause": "A service stopped because of an error",
+        "severity": 45,
+        "solutions": [
+            "Read the error in the event text",
+            "Check events from the service's own provider"
+        ]
+    },
+    "7024": {
+        "name": "Service terminated with a service-specific error",
+        "sources": [
+            "Service Control Manager"
+        ],
+        "cause": "A service stopped with an error code specific to that service",
+        "severity": 50,
+        "solutions": [
+            "Read the error code in the event text",
+            "Check the product documentation for that service"
+        ]
+    },
+    "7026": {
+        "name": "Boot or system driver failed to load",
+        "sources": [
+            "Service Control Manager"
+        ],
+        "cause": "A driver needed at startup could not be loaded",
+        "severity": 80,
+        "solutions": [
+            "Identify the driver in the event text",
+            "Reinstall or roll back the driver",
+            "Run sfc /scannow if system files may be damaged"
+        ]
+    },
+    "7031": {
+        "name": "Service crashed (recovery action taken)",
+        "sources": [
+            "Service Control Manager"
+        ],
+        "cause": "A service ended unexpectedly and Windows is taking the configured recovery action",
+        "severity": 55,
+        "solutions": [
+            "Identify the service in the event text",
+            "Check the Application log and the service's own logs",
+            "Review the service's recovery settings"
+        ]
+    },
+    "7034": {
+        "name": "Service terminated unexpectedly",
+        "sources": [
+            "Service Control Manager"
+        ],
+        "cause": "A service ended unexpectedly",
+        "severity": 55,
+        "solutions": [
+            "Identify the service in the event text",
+            "Check the Application log and the service's own logs"
+        ]
+    },
+    "7036": {
+        "name": "Service state change",
+        "sources": [
+            "Service Control Manager"
+        ],
+        "cause": "A service entered the running or stopped state",
         "severity": 5,
         "solutions": [
-            "No action required"
+            "No action needed unless the change was not expected"
         ]
     },
-
-    "44": {
-        "name": "Windows Update Installation Started",
-        "cause": "Windows Update installation initiated",
-        "severity": 5,
+    "7038": {
+        "name": "Service logon failed",
+        "sources": [
+            "Service Control Manager"
+        ],
+        "cause": "A service could not log on with its configured account",
+        "severity": 55,
         "solutions": [
-            "No action required"
+            "Check the service account name and password",
+            "Check that the account is not locked or expired"
         ]
     },
-
     "7040": {
         "name": "Service Configuration Change",
+        "sources": [
+            "Service Control Manager"
+        ],
         "cause": "A Windows service startup type was modified",
         "severity": 20,
         "solutions": [
             "Verify the service change is expected",
             "Review recent software installations",
             "Check service dependencies"
+        ]
+    },
+    "7045": {
+        "name": "New service installed",
+        "sources": [
+            "Service Control Manager"
+        ],
+        "cause": "A new service was installed on the system",
+        "severity": 40,
+        "solutions": [
+            "Confirm the installation was expected",
+            "Check the service name and file path for anything unfamiliar"
+        ]
+    },
+    "10010": {
+        "name": "DCOM server did not register",
+        "sources": [
+            "Microsoft-Windows-DistributedCOM"
+        ],
+        "cause": "A DCOM server did not register in the required time",
+        "severity": 30,
+        "solutions": [
+            "Check the application or service that owns the CLSID in the event",
+            "Repair or reinstall that application if it repeats"
+        ]
+    },
+    "10016": {
+        "name": "DistributedCOM",
+        "sources": [
+            "Microsoft-Windows-DistributedCOM"
+        ],
+        "cause": "Permission issue",
+        "severity": 35,
+        "solutions": [
+            "Review DCOM permissions"
+        ]
+    },
+    "36874": {
+        "name": "TLS: no common cipher suite",
+        "sources": [
+            "Schannel"
+        ],
+        "cause": "A client could not agree on a cipher suite with this server",
+        "severity": 30,
+        "solutions": [
+            "Identify the client that is connecting",
+            "Review the TLS and cipher settings on the server",
+            "Update the client if it is outdated"
+        ]
+    },
+    "36887": {
+        "name": "TLS: fatal alert received",
+        "sources": [
+            "Schannel"
+        ],
+        "cause": "The remote side ended a TLS connection with a fatal alert",
+        "severity": 25,
+        "solutions": [
+            "Check the alert code in the event",
+            "Check certificates and TLS settings on both sides"
+        ]
+    },
+    "36888": {
+        "name": "TLS: fatal alert sent",
+        "sources": [
+            "Schannel"
+        ],
+        "cause": "This computer ended a TLS connection with a fatal alert",
+        "severity": 30,
+        "solutions": [
+            "Check the alert code in the event",
+            "Check certificates and TLS settings on both sides"
         ]
     }
 }

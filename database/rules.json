@@ -1,0 +1,622 @@
+{
+  "version": 1,
+  "health": {
+    "severity_factor": 20,
+    "repeat_multiplier_cap": 2.5,
+    "per_source_cap": 40
+  },
+  "rules": [
+    {
+      "id": "power-loss-pattern",
+      "title": "Unexpected shutdown with Kernel-Power",
+      "finding": "Unexpected shutdown pattern detected. Possible power outage, PSU issue, hardware instability or system crash.",
+      "recommendations": [
+        "Check power supply, UPS and power stability.",
+        "Check system temperatures.",
+        "Run memory diagnostics."
+      ],
+      "all_of": [
+        {
+          "id": 41,
+          "sources": [
+            "Microsoft-Windows-Kernel-Power"
+          ]
+        },
+        {
+          "id": 6008,
+          "sources": [
+            "EventLog"
+          ]
+        }
+      ],
+      "window_minutes": 30,
+      "severity": 90,
+      "score_penalty": 5,
+      "suppresses": [
+        "kernel-power-only",
+        "unexpected-shutdown-only"
+      ]
+    },
+    {
+      "id": "kernel-power-only",
+      "title": "Kernel-Power 41",
+      "finding": "Kernel-Power Event 41: the system restarted without a clean shutdown.",
+      "recommendations": [
+        "Check power supply and temperatures."
+      ],
+      "any_of": [
+        {
+          "id": 41,
+          "sources": [
+            "Microsoft-Windows-Kernel-Power"
+          ]
+        }
+      ],
+      "severity": 80
+    },
+    {
+      "id": "unexpected-shutdown-only",
+      "title": "Unexpected shutdown 6008",
+      "finding": "An unexpected shutdown was recorded (Event 6008).",
+      "recommendations": [
+        "Investigate unexpected shutdowns."
+      ],
+      "any_of": [
+        {
+          "id": 6008,
+          "sources": [
+            "EventLog"
+          ]
+        }
+      ],
+      "severity": 70
+    },
+    {
+      "id": "system-crash",
+      "title": "System crash (bugcheck)",
+      "finding": "The system crashed with a stop error (blue screen) and restarted.",
+      "recommendations": [
+        "Note the bugcheck code in the event data and look it up.",
+        "Update or roll back recently installed drivers and updates.",
+        "Analyze the memory dump with WinDbg."
+      ],
+      "any_of": [
+        {
+          "id": 1001,
+          "sources": [
+            "Microsoft-Windows-WER-SystemErrorReporting",
+            "BugCheck"
+          ]
+        }
+      ],
+      "severity": 90,
+      "score_penalty": 10
+    },
+    {
+      "id": "disk-ntfs-chain",
+      "title": "Disk errors with NTFS corruption",
+      "finding": "Disk errors and NTFS corruption detected. Storage subsystem failure is likely.",
+      "recommendations": [
+        "Backup critical data immediately.",
+        "Run SMART diagnostics on all disks.",
+        "Run CHKDSK /F and review storage logs."
+      ],
+      "all_of": [
+        {
+          "id": 7,
+          "sources": [
+            "disk"
+          ]
+        },
+        {
+          "id": 55,
+          "sources": [
+            "Ntfs",
+            "Microsoft-Windows-Ntfs"
+          ]
+        }
+      ],
+      "window_minutes": 360,
+      "severity": 95,
+      "score_penalty": 20,
+      "suppresses": [
+        "disk-bad-blocks",
+        "ntfs-corruption"
+      ]
+    },
+    {
+      "id": "disk-bad-blocks",
+      "title": "Disk bad blocks",
+      "finding": "Disk bad sectors detected. Check SMART health immediately.",
+      "recommendations": [
+        "Check SMART health immediately.",
+        "Schedule disk replacement planning."
+      ],
+      "any_of": [
+        {
+          "id": 7,
+          "sources": [
+            "disk"
+          ]
+        }
+      ],
+      "severity": 90
+    },
+    {
+      "id": "ntfs-corruption",
+      "title": "NTFS corruption",
+      "finding": "File system corruption detected. Run CHKDSK and verify disk health.",
+      "recommendations": [
+        "Run CHKDSK /F.",
+        "Investigate previous unexpected shutdowns."
+      ],
+      "any_of": [
+        {
+          "id": 55,
+          "sources": [
+            "Ntfs",
+            "Microsoft-Windows-Ntfs"
+          ]
+        }
+      ],
+      "severity": 85
+    },
+    {
+      "id": "smart-failure-predicted",
+      "title": "Disk predicts failure",
+      "finding": "A disk reports that it is about to fail (SMART). Treat it as failing.",
+      "recommendations": [
+        "Back up critical data immediately.",
+        "Replace the failing disk as soon as possible."
+      ],
+      "any_of": [
+        {
+          "id": 52,
+          "sources": [
+            "disk"
+          ]
+        }
+      ],
+      "severity": 98,
+      "score_penalty": 25
+    },
+    {
+      "id": "storage-io-problems",
+      "title": "Repeated storage I/O problems",
+      "finding": "Repeated storage I/O errors, retries or device resets. A disk, cable, controller or driver may be failing.",
+      "recommendations": [
+        "Check SMART health and disk firmware.",
+        "Check cables, backplane and the storage controller driver and firmware.",
+        "Make sure critical data is backed up."
+      ],
+      "any_of": [
+        {
+          "id": 153,
+          "sources": [
+            "disk"
+          ]
+        },
+        {
+          "id": 154,
+          "sources": [
+            "disk"
+          ]
+        },
+        {
+          "id": 11,
+          "sources": [
+            "disk"
+          ]
+        },
+        {
+          "id": 51,
+          "sources": [
+            "disk"
+          ]
+        },
+        {
+          "id": 129,
+          "sources": [
+            "storahci",
+            "stornvme"
+          ]
+        }
+      ],
+      "min_count": 3,
+      "severity": 80,
+      "score_penalty": 10
+    },
+    {
+      "id": "low-disk-space",
+      "title": "Low disk space",
+      "finding": "A disk is almost full or shadow copies could not grow.",
+      "recommendations": [
+        "Free space on the affected drive.",
+        "Move or archive old data, or extend the volume."
+      ],
+      "any_of": [
+        {
+          "id": 2013,
+          "sources": [
+            "Srv"
+          ]
+        },
+        {
+          "id": 36,
+          "sources": [
+            "volsnap"
+          ]
+        }
+      ],
+      "severity": 55,
+      "score_penalty": 5
+    },
+    {
+      "id": "boot-driver-failure",
+      "title": "Boot or system driver failed to load",
+      "finding": "A boot-start or system-start driver failed to load.",
+      "recommendations": [
+        "Identify the driver in the event text and reinstall or roll it back.",
+        "Run sfc /scannow if system files may be damaged."
+      ],
+      "any_of": [
+        {
+          "id": 7026,
+          "sources": [
+            "Service Control Manager"
+          ]
+        }
+      ],
+      "severity": 80,
+      "score_penalty": 10
+    },
+    {
+      "id": "service-crashes",
+      "title": "Repeated service crashes",
+      "finding": "Services are terminating unexpectedly (3 or more times). Identify the affected service in the event text.",
+      "recommendations": [
+        "Identify the crashing service in the event text.",
+        "Check the Application log and the service's own logs.",
+        "Review the service's recovery settings."
+      ],
+      "any_of": [
+        {
+          "id": 7031,
+          "sources": [
+            "Service Control Manager"
+          ]
+        },
+        {
+          "id": 7034,
+          "sources": [
+            "Service Control Manager"
+          ]
+        }
+      ],
+      "min_count": 3,
+      "severity": 60,
+      "score_penalty": 5
+    },
+    {
+      "id": "service-start-failures",
+      "title": "Services failing to start",
+      "finding": "Several services failed to start or hung while starting.",
+      "recommendations": [
+        "Read the error in each event text.",
+        "Check service accounts and dependencies."
+      ],
+      "any_of": [
+        {
+          "id": 7000,
+          "sources": [
+            "Service Control Manager"
+          ]
+        },
+        {
+          "id": 7001,
+          "sources": [
+            "Service Control Manager"
+          ]
+        },
+        {
+          "id": 7009,
+          "sources": [
+            "Service Control Manager"
+          ]
+        },
+        {
+          "id": 7011,
+          "sources": [
+            "Service Control Manager"
+          ]
+        },
+        {
+          "id": 7022,
+          "sources": [
+            "Service Control Manager"
+          ]
+        },
+        {
+          "id": 7023,
+          "sources": [
+            "Service Control Manager"
+          ]
+        },
+        {
+          "id": 7024,
+          "sources": [
+            "Service Control Manager"
+          ]
+        },
+        {
+          "id": 7038,
+          "sources": [
+            "Service Control Manager"
+          ]
+        }
+      ],
+      "min_count": 2,
+      "severity": 55
+    },
+    {
+      "id": "domain-connectivity",
+      "title": "Domain or Group Policy connectivity problems",
+      "finding": "The computer has trouble reaching its domain controller (Netlogon or Group Policy errors).",
+      "recommendations": [
+        "Check network connectivity and DNS settings.",
+        "Check that a domain controller is reachable.",
+        "Check time synchronization and the computer account."
+      ],
+      "any_of": [
+        {
+          "id": 5719,
+          "sources": [
+            "NETLOGON"
+          ]
+        },
+        {
+          "id": 5805,
+          "sources": [
+            "NETLOGON"
+          ]
+        },
+        {
+          "id": 1129,
+          "sources": [
+            "Microsoft-Windows-GroupPolicy"
+          ]
+        },
+        {
+          "id": 1030,
+          "sources": [
+            "Microsoft-Windows-GroupPolicy"
+          ]
+        },
+        {
+          "id": 1058,
+          "sources": [
+            "Microsoft-Windows-GroupPolicy"
+          ]
+        }
+      ],
+      "severity": 65,
+      "score_penalty": 5
+    },
+    {
+      "id": "time-sync-problems",
+      "title": "Time synchronization problems",
+      "finding": "The Windows Time service cannot reach a reliable time source.",
+      "recommendations": [
+        "Check the configured time source and network access to it.",
+        "Run w32tm /query /status."
+      ],
+      "any_of": [
+        {
+          "id": 36,
+          "sources": [
+            "Microsoft-Windows-Time-Service",
+            "w32time"
+          ]
+        },
+        {
+          "id": 129,
+          "sources": [
+            "Microsoft-Windows-Time-Service",
+            "w32time"
+          ]
+        },
+        {
+          "id": 134,
+          "sources": [
+            "Microsoft-Windows-Time-Service",
+            "w32time"
+          ]
+        }
+      ],
+      "severity": 40
+    },
+    {
+      "id": "fatal-hardware-error",
+      "title": "Fatal hardware error",
+      "finding": "A fatal hardware error was reported by the hardware (WHEA).",
+      "recommendations": [
+        "Open the event details to see the failing component.",
+        "Run vendor hardware diagnostics and update firmware."
+      ],
+      "any_of": [
+        {
+          "id": 18,
+          "sources": [
+            "Microsoft-Windows-WHEA-Logger"
+          ]
+        }
+      ],
+      "severity": 95,
+      "score_penalty": 15
+    },
+    {
+      "id": "corrected-hardware-errors",
+      "title": "Repeated corrected hardware errors",
+      "finding": "Repeated corrected hardware errors (WHEA). The hardware is recovering from errors that may get worse.",
+      "recommendations": [
+        "Open the event details to see the component.",
+        "Check cooling and power; update BIOS and device firmware."
+      ],
+      "any_of": [
+        {
+          "id": 17,
+          "sources": [
+            "Microsoft-Windows-WHEA-Logger"
+          ]
+        },
+        {
+          "id": 19,
+          "sources": [
+            "Microsoft-Windows-WHEA-Logger"
+          ]
+        }
+      ],
+      "min_count": 5,
+      "severity": 55,
+      "score_penalty": 5
+    },
+    {
+      "id": "cpu-throttling",
+      "title": "CPU throttled by firmware",
+      "finding": "The processor is repeatedly being slowed by firmware (heat or power limits).",
+      "recommendations": [
+        "Check cooling, fans and dust.",
+        "Check the power plan and power supply."
+      ],
+      "any_of": [
+        {
+          "id": 37,
+          "sources": [
+            "Microsoft-Windows-Kernel-Processor-Power"
+          ]
+        }
+      ],
+      "min_count": 3,
+      "severity": 40
+    },
+    {
+      "id": "display-driver-resets",
+      "title": "Display driver resets",
+      "finding": "The display driver stopped responding and was reset more than once.",
+      "recommendations": [
+        "Update the graphics driver.",
+        "Check GPU temperature and power."
+      ],
+      "any_of": [
+        {
+          "id": 4101,
+          "sources": [
+            "Display"
+          ]
+        }
+      ],
+      "min_count": 2,
+      "severity": 45
+    },
+    {
+      "id": "ip-address-conflict",
+      "title": "IP address conflict",
+      "finding": "An IP address conflict was detected on the network.",
+      "recommendations": [
+        "Find the device with the conflicting address (its MAC address is in the event).",
+        "Check DHCP scope and static address assignments."
+      ],
+      "any_of": [
+        {
+          "id": 4199,
+          "sources": [
+            "Tcpip"
+          ]
+        }
+      ],
+      "severity": 45
+    },
+    {
+      "id": "tls-handshake-failures",
+      "title": "Repeated TLS failures",
+      "finding": "Repeated TLS (Schannel) connection failures. A client or server may use unsupported TLS settings or certificates.",
+      "recommendations": [
+        "Identify the client that is connecting and its TLS settings.",
+        "Review certificates and TLS/cipher settings on the server."
+      ],
+      "any_of": [
+        {
+          "id": 36874,
+          "sources": [
+            "Schannel"
+          ]
+        },
+        {
+          "id": 36887,
+          "sources": [
+            "Schannel"
+          ]
+        },
+        {
+          "id": 36888,
+          "sources": [
+            "Schannel"
+          ]
+        }
+      ],
+      "min_count": 5,
+      "severity": 35
+    },
+    {
+      "id": "event-log-cleared",
+      "title": "Event log cleared",
+      "finding": "An event log was cleared. Confirm this was an authorized action.",
+      "recommendations": [
+        "Confirm the clearing was authorized and check who did it."
+      ],
+      "any_of": [
+        {
+          "id": 104,
+          "sources": [
+            "Microsoft-Windows-Eventlog"
+          ]
+        }
+      ],
+      "severity": 65
+    },
+    {
+      "id": "service-installed",
+      "title": "New service installed",
+      "finding": "A new service was installed. Confirm it is expected.",
+      "recommendations": [
+        "Confirm the new service is expected; check its name and file path."
+      ],
+      "any_of": [
+        {
+          "id": 7045,
+          "sources": [
+            "Service Control Manager"
+          ]
+        }
+      ],
+      "severity": 40
+    },
+    {
+      "id": "dcom-noise",
+      "title": "DistributedCOM warnings",
+      "finding": "DistributedCOM warnings detected. Usually low risk and often harmless.",
+      "recommendations": [
+        "DistributedCOM warnings are usually low priority."
+      ],
+      "any_of": [
+        {
+          "id": 10016,
+          "sources": [
+            "Microsoft-Windows-DistributedCOM"
+          ]
+        }
+      ],
+      "severity": 20
+    }
+  ]
+}

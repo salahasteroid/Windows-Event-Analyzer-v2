@@ -12,6 +12,7 @@ a = Analysis(
     datas=[
         (str(project_dir / "database" / "event_definitions.json"), "database"),
         (str(project_dir / "database" / "error_codes.json"), "database"),
+        (str(project_dir / "database" / "rules.json"), "database"),
     ],
     hiddenimports=[],
     hookspath=[],
@@ -34,11 +35,14 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    # UPX-packed executables are often flagged by antivirus; the size
+    # saving is not worth it for an admin tool.
+    upx=False,
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    version=str(project_dir / "version_info.txt"),
 )

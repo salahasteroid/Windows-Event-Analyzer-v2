@@ -3,14 +3,280 @@
         "description": "Application currently in use",
         "recommendation": "Close the application and retry the update"
     },
-
     "0x80070005": {
         "description": "Access denied",
         "recommendation": "Verify permissions and run as Administrator"
     },
-
     "0x80240022": {
         "description": "Windows Update service unavailable",
         "recommendation": "Restart Windows Update services"
+    },
+    "0x80070002": {
+        "description": "File not found",
+        "recommendation": "Check that the file or path exists and that the name is spelled correctly"
+    },
+    "0x80070003": {
+        "description": "Path not found",
+        "recommendation": "Check that the folder exists and is reachable"
+    },
+    "0x80070015": {
+        "description": "The device is not ready",
+        "recommendation": "Check that the drive or device is connected, powered and working"
+    },
+    "0x80070020": {
+        "description": "Sharing violation: the file is in use by another process",
+        "recommendation": "Close the program using the file, then retry"
+    },
+    "0x80070032": {
+        "description": "The request is not supported",
+        "recommendation": "Check that the feature or device supports this operation"
+    },
+    "0x80070057": {
+        "description": "Invalid parameter",
+        "recommendation": "Check the settings or arguments passed to the operation"
+    },
+    "0x8007000e": {
+        "description": "Not enough memory",
+        "recommendation": "Close programs or add memory, then retry"
+    },
+    "0x80070070": {
+        "description": "Not enough disk space",
+        "recommendation": "Free space on the drive and retry"
+    },
+    "0x80070422": {
+        "description": "The service cannot be started because it is disabled or has no enabled devices",
+        "recommendation": "Set the service startup type to Manual or Automatic and start it"
+    },
+    "0x80070426": {
+        "description": "The service has not been started",
+        "recommendation": "Start the service and check its startup type"
+    },
+    "0x80070490": {
+        "description": "Element not found",
+        "recommendation": "Check that the item, setting or component named in the event exists; repair system files with sfc /scannow if it is a system component"
+    },
+    "0x800704c7": {
+        "description": "The operation was canceled by the user",
+        "recommendation": "Retry the operation if it was not canceled on purpose"
+    },
+    "0x800705b4": {
+        "description": "The operation timed out",
+        "recommendation": "Check the network, the target service and system load, then retry"
+    },
+    "0x80070643": {
+        "description": "Fatal error during installation",
+        "recommendation": "Check the installer log, restart the computer and retry the installation"
+    },
+    "0x800706ba": {
+        "description": "The RPC server is unavailable",
+        "recommendation": "Check the target computer, the RPC and Remote Procedure Call services, DNS and the firewall"
+    },
+    "0x800706be": {
+        "description": "The remote procedure call failed",
+        "recommendation": "Check network stability, the target service and the firewall"
+    },
+    "0x8007139f": {
+        "description": "The group or resource is not in the correct state for the operation",
+        "recommendation": "Restart the related service or computer and retry"
+    },
+    "0x80004005": {
+        "description": "Unspecified error",
+        "recommendation": "Read the rest of the event data and the surrounding events for the real cause"
+    },
+    "0x80004002": {
+        "description": "No such interface supported",
+        "recommendation": "Repair or reinstall the application or component that reported this error"
+    },
+    "0x80240034": {
+        "description": "Windows Update download failed",
+        "recommendation": "Check the network connection and free disk space, then retry the update"
+    },
+    "0x8024402c": {
+        "description": "Windows Update could not resolve the server name",
+        "recommendation": "Check DNS and proxy settings"
+    },
+    "0x80244019": {
+        "description": "Windows Update server returned HTTP 404 (not found)",
+        "recommendation": "Check proxy and update server settings; retry later"
+    },
+    "0x80072ee2": {
+        "description": "The network operation timed out",
+        "recommendation": "Check internet or proxy access and retry"
+    },
+    "0x80072efd": {
+        "description": "A connection with the server could not be established",
+        "recommendation": "Check internet, proxy and firewall access"
+    },
+    "0x80072f8f": {
+        "description": "A secure connection failed (often a wrong system date or TLS problem)",
+        "recommendation": "Check the computer date and time and the TLS settings"
+    },
+    "0x800f0922": {
+        "description": "Servicing could not finish the installation (update or feature install)",
+        "recommendation": "Check free space (including the System Reserved partition), restart, then retry; review CBS.log"
+    },
+    "0xc0000001": {
+        "description": "Unsuccessful",
+        "recommendation": "Check the surrounding events for details"
+    },
+    "0xc0000005": {
+        "description": "Access violation: a program read or wrote memory it should not",
+        "recommendation": "Update or reinstall the program or driver that crashed; check memory health"
+    },
+    "0xc000000d": {
+        "description": "Invalid parameter",
+        "recommendation": "Check the settings or arguments passed to the operation"
+    },
+    "0xc0000017": {
+        "description": "Not enough memory",
+        "recommendation": "Close programs or add memory"
+    },
+    "0xc0000022": {
+        "description": "Access denied",
+        "recommendation": "Check permissions on the object"
+    },
+    "0xc0000034": {
+        "description": "Object name not found",
+        "recommendation": "Check that the file, key or object exists"
+    },
+    "0xc000009c": {
+        "description": "Bad data on the device (bad block)",
+        "recommendation": "Check disk health (SMART) and run CHKDSK; replace the disk if errors continue"
+    },
+    "0xc0000185": {
+        "description": "I/O device error",
+        "recommendation": "Check the device, cables and SMART status"
+    },
+    "0xc000021a": {
+        "description": "A critical Windows process ended unexpectedly",
+        "recommendation": "Check recent updates and drivers; run sfc /scannow and DISM /RestoreHealth"
+    },
+    "0xc000006a": {
+        "description": "Logon failed: wrong password",
+        "recommendation": "Check the password the user or service is using"
+    },
+    "0xc0000064": {
+        "description": "Logon failed: user name does not exist",
+        "recommendation": "Check the account name"
+    },
+    "0xc000006d": {
+        "description": "Logon failed",
+        "recommendation": "Check the user name, password and the source of the logon attempt"
+    },
+    "0xc0000234": {
+        "description": "The account is locked out",
+        "recommendation": "Find the source of the failed logons; unlock the account after fixing it"
+    },
+    "0x0000000a": {
+        "description": "Bugcheck IRQL_NOT_LESS_OR_EQUAL",
+        "recommendation": "A driver or the kernel touched memory at the wrong priority level; update drivers and check memory",
+        "event_ids": [
+            1001
+        ]
+    },
+    "0x0000001a": {
+        "description": "Bugcheck MEMORY_MANAGEMENT",
+        "recommendation": "A serious memory management error; run memory diagnostics and check drivers",
+        "event_ids": [
+            1001
+        ]
+    },
+    "0x0000001e": {
+        "description": "Bugcheck KMODE_EXCEPTION_NOT_HANDLED",
+        "recommendation": "A kernel-mode program caused an exception; update drivers and check memory",
+        "event_ids": [
+            1001
+        ]
+    },
+    "0x0000003b": {
+        "description": "Bugcheck SYSTEM_SERVICE_EXCEPTION",
+        "recommendation": "An error occurred while running a system service; update drivers and software",
+        "event_ids": [
+            1001
+        ]
+    },
+    "0x00000050": {
+        "description": "Bugcheck PAGE_FAULT_IN_NONPAGED_AREA",
+        "recommendation": "Windows could not find memory it needed; check memory and drivers",
+        "event_ids": [
+            1001
+        ]
+    },
+    "0x0000007a": {
+        "description": "Bugcheck KERNEL_DATA_INPAGE_ERROR",
+        "recommendation": "Windows could not read data back into memory; check disk, cables and memory",
+        "event_ids": [
+            1001
+        ]
+    },
+    "0x0000007b": {
+        "description": "Bugcheck INACCESSIBLE_BOOT_DEVICE",
+        "recommendation": "Windows lost access to the system drive during startup; check storage drivers, controller mode and disk health",
+        "event_ids": [
+            1001
+        ]
+    },
+    "0x0000009c": {
+        "description": "Bugcheck MACHINE_CHECK_EXCEPTION",
+        "recommendation": "A fatal hardware error was reported by the CPU; check hardware, cooling and firmware",
+        "event_ids": [
+            1001
+        ]
+    },
+    "0x0000009f": {
+        "description": "Bugcheck DRIVER_POWER_STATE_FAILURE",
+        "recommendation": "A driver did not handle a power change correctly; update drivers and firmware",
+        "event_ids": [
+            1001
+        ]
+    },
+    "0x000000d1": {
+        "description": "Bugcheck DRIVER_IRQL_NOT_LESS_OR_EQUAL",
+        "recommendation": "A driver accessed memory at the wrong priority level; update or remove the driver",
+        "event_ids": [
+            1001
+        ]
+    },
+    "0x000000ef": {
+        "description": "Bugcheck CRITICAL_PROCESS_DIED",
+        "recommendation": "A critical Windows process ended; check disk health, recent updates and drivers",
+        "event_ids": [
+            1001
+        ]
+    },
+    "0x00000101": {
+        "description": "Bugcheck CLOCK_WATCHDOG_TIMEOUT",
+        "recommendation": "A CPU core did not respond in time; check hardware, cooling and firmware",
+        "event_ids": [
+            1001
+        ]
+    },
+    "0x00000116": {
+        "description": "Bugcheck VIDEO_TDR_FAILURE",
+        "recommendation": "The graphics driver did not recover from a timeout; update the graphics driver and check GPU",
+        "event_ids": [
+            1001
+        ]
+    },
+    "0x00000124": {
+        "description": "Bugcheck WHEA_UNCORRECTABLE_ERROR",
+        "recommendation": "The hardware reported an error it could not correct; check CPU, memory, disks and firmware",
+        "event_ids": [
+            1001
+        ]
+    },
+    "0x00000133": {
+        "description": "Bugcheck DPC_WATCHDOG_VIOLATION",
+        "recommendation": "A driver took too long to complete work; update storage and other drivers and firmware",
+        "event_ids": [
+            1001
+        ]
+    },
+    "0x00000139": {
+        "description": "Bugcheck KERNEL_SECURITY_CHECK_FAILURE",
+        "recommendation": "Windows found corrupted data in a kernel structure; check drivers and memory",
+        "event_ids": [
+            1001
+        ]
     }
 }

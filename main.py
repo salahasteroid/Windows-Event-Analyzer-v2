@@ -23,11 +23,21 @@ from modules.dashboard_generator import (
 )
 
 from modules.health_score import (
-    calculate_health_score
+    explain_health_score
 )
 
 from modules.recommendation_engine import (
     build_recommendations
+)
+
+from modules.rules_engine import (
+    evaluate_rules
+)
+
+from modules.trend_engine import (
+    HISTORY_FILE_NAME,
+    compare_with_history,
+    record_run
 )
 
 from modules.xml_exporter import (
@@ -143,17 +153,30 @@ def main(
             f"{remote_options['computer']}"
         )
 
-    health_score = (
-        calculate_health_score(
-            events
-        )
+    report_dir = (
+        get_reports_dir()
+        if output_dir is None
+        else Path(output_dir)
     )
+
+    # Rules (database/rules.json) are evaluated once and shared by the
+    # health score, the findings and the recommendations.
+    rule_matches = evaluate_rules(events)
+    if stop_if_cancelled():
+        return
+
+    health_details = explain_health_score(
+        events,
+        rule_matches
+    )
+    health_score = health_details["score"]
     if stop_if_cancelled():
         return
 
     smart_recommendations = (
         build_recommendations(
-            events
+            events,
+            rule_matches
         )
     )
     if stop_if_cancelled():
@@ -161,11 +184,26 @@ def main(
 
     correlation_results = (
         correlate_events(
-            events
+            events,
+            rule_matches
         )
     )
     if stop_if_cancelled():
         return
+
+    # Trend comparison needs a live or remote collection; an offline EVTX
+    # file is not a point in time, so it is not tracked.
+    history_path = report_dir / HISTORY_FILE_NAME
+    window_seconds = (end_time - start_time).total_seconds()
+    trends = None
+
+    if not evtx_file:
+        trends = compare_with_history(
+            events,
+            window_seconds,
+            history_path,
+            levels=selected_levels
+        )
 
     lookup_candidates = [
         event
@@ -420,6 +458,44 @@ def main(
         f"{health_score}%"
     )
 
+    deductions = health_details["events"][:5]
+
+    if deductions or health_details["rules"]:
+
+        print("Score deductions (largest first):")
+
+        for item in deductions:
+            print(
+                f"  - {item['source']} Event {item['event_id']} "
+                f"x{item['count']}: -{item['penalty']}"
+            )
+
+        for item in health_details["rules"]:
+            print(
+                f"  - Pattern '{item['title']}': -{item['penalty']}"
+            )
+
+    if trends is not None:
+
+        print(
+            "\nTrend Analysis\n"
+        )
+
+        print(trends["message"])
+
+        for key, title in (
+            ("new", "New"),
+            ("increased", "Increased"),
+            ("decreased", "Decreased"),
+            ("resolved", "No longer seen"),
+        ):
+            for entry in trends.get(key, []):
+                print(
+                    f"  - {title}: {entry['source']} "
+                    f"Event {entry['event_id']} "
+                    f"({entry['previous_count']} -> {entry['count']})"
+                )
+
     print(
         "\nPriority Actions\n"
     )
@@ -460,11 +536,6 @@ def main(
     if stop_if_cancelled():
         return
 
-    report_dir = (
-        get_reports_dir()
-        if output_dir is None
-        else Path(output_dir)
-    )
     generate_html_report(
         report_events,
         output_dir=report_dir,
@@ -476,7 +547,17 @@ def main(
         correlation_results,
         smart_recommendations,
         output_dir=report_dir,
+        score_breakdown=health_details,
+        trends=trends,
     )
+
+    if not evtx_file:
+        record_run(
+            events,
+            window_seconds,
+            history_path,
+            levels=selected_levels
+        )
 
     print(
         "\nHTML report generated:"
