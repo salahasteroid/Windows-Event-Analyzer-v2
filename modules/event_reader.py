@@ -3,6 +3,7 @@ import xml.etree.ElementTree as ET
 
 from modules.event_data import extract_event_data
 from modules.event_levels import normalize_event_levels
+from modules.message_formatter import MessageResolver
 from modules.time_range import format_event_log_time, resolve_time_range
 
 
@@ -116,6 +117,8 @@ def get_recent_events(
             session
         )
 
+    message_resolver = MessageResolver(session)
+
     while (
         (max_events is None or len(events) < max_events)
         and not (
@@ -211,9 +214,16 @@ def get_recent_events(
                         ns
                     ),
 
+                    # The XML only carries a message when Windows
+                    # rendered one; otherwise ask the provider for it.
                     "Message": extract_message(
                         root,
                         ns
+                    ) or message_resolver.format(
+                        record,
+                        provider.attrib.get("Name")
+                        if provider is not None
+                        else None
                     ),
 
                     "RawXML": xml_data
@@ -224,5 +234,7 @@ def get_recent_events(
                 print(
                     f"Read Error: {ex}"
                 )
+
+    message_resolver.close()
 
     return events

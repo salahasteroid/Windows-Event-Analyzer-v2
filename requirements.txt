@@ -1,2 +1,2 @@
-pywin32>=312
-python-evtx>=0.8.1
+pywin32>=312,<400
+python-evtx>=0.8.1,<1

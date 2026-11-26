@@ -205,14 +205,27 @@ def generate_html_report(events, output_dir=None):
         safe_severity = escape(severity, quote=True)
         cause = escape(str(analysis["cause"]), quote=True)
         safe_message = escape(str(message), quote=True)
-        error_code = escape(
-            str(analysis.get("error_code", "")),
-            quote=True
-        )
-        error_description = escape(
-            str(analysis.get("error_description", "")),
-            quote=True
-        )
+        error_entries = analysis.get("error_codes")
+
+        if error_entries:
+            # One line per error code found in the event data.
+            error_code = "<br>".join(
+                escape(str(entry.get("code", "")), quote=True)
+                for entry in error_entries
+            )
+            error_description = "<br>".join(
+                escape(str(entry.get("description", "")), quote=True)
+                for entry in error_entries
+            )
+        else:
+            error_code = escape(
+                str(analysis.get("error_code", "")),
+                quote=True
+            )
+            error_description = escape(
+                str(analysis.get("error_description", "")),
+                quote=True
+            )
         event_time = escape(str(event["Time"]), quote=True)
 
         html += f"""
