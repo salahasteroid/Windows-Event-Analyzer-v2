@@ -21,6 +21,9 @@ Version 2.1.0
 - [Build the executable](#build-the-executable)
 - [Run from source](#run-from-source)
 - [Usage](#usage)
+  - [Logs, filters and exports](#logs-filters-and-exports)
+  - [Command line and scheduled runs](#command-line-and-scheduled-runs)
+  - [Events without a definition](#events-without-a-definition)
 - [Customizing the databases](#customizing-the-databases)
   - [Adding new event definitions](#adding-new-event-definitions)
   - [Adding new error codes](#adding-new-error-codes)
@@ -41,7 +44,8 @@ Version 2.1.0
 
 ## Event collection
 
-- Read the live Windows **System** log
+- Read the live Windows **System**, **Application** and **Security** logs
+  (Security by selected audit Event IDs)
 - Read offline **EVTX** files
 - Analyze the previous 24 hours by default; in the executable, enter a custom
   start and end time (local time) for either source
@@ -49,6 +53,9 @@ Version 2.1.0
   default
 - Filter the result pane by level after analysis, and stop collection or
   processing with the Stop button or the Esc key
+- Run unattended from the command line / Task Scheduler with filters, CSV/JSON/
+  XML export, syslog forwarding, e-mail and a health-score exit code
+- **Test connection** button for remote computers before a run
 - Query up to 20 authorized remote computers by IP using a local or domain
   account; collection runs concurrently for up to five computers
 - Optionally remember the IP list and domain locally, or forget both from the
@@ -145,24 +152,35 @@ EventAnalyzer
 │   ├── analyzer.py              Per-event analysis (definition, error codes)
 │   ├── app_ui.py                Window of the packaged app
 │   ├── correlation_engine.py    Findings from the rule results
+│   ├── cli.py                   Command-line / scheduled mode, e-mail
+│   ├── dashboard_charts.py      SVG charts for the dashboard
 │   ├── dashboard_generator.py   dashboard.html
 │   ├── database_loader.py       Loads and caches the JSON databases, custom folder
 │   ├── event_catalog.py         Finds a definition by Event ID and provider
+│   ├── event_channels.py        Supported logs (System, Application, Security)
 │   ├── event_data.py            Event Data field names and plain-language hints
+│   ├── event_filter.py          Event ID / provider / keyword filters
+│   ├── event_grouping.py        Repeated events collapsed with a count
 │   ├── event_levels.py          Event level names and defaults
-│   ├── event_reader.py          Live and remote System log reader
+│   ├── event_reader.py          Live and remote log reader
 │   ├── evtx_reader.py           Offline EVTX reader
+│   ├── exporters.py             CSV, JSON, combined XML and syslog output
 │   ├── health_score.py          Health score and its breakdown
 │   ├── internet_lookup.py       Microsoft Learn lookup
 │   ├── message_formatter.py     Message text from the provider's message tables
 │   ├── paths.py                 Program, reports and user-data folders
 │   ├── recommendation_engine.py Priority actions from the rule results
+│   ├── remote_check.py          "Test connection" for a remote computer
 │   ├── remote_settings.py       Saved IP list and domain
+│   ├── remote_summary.py        Comparison page for several computers
 │   ├── remote_targets.py        IP list parsing and limits
 │   ├── report_generator.py      event_report.html
 │   ├── rules_engine.py          Loads and evaluates the correlation rules
+│   ├── security_summary.py      Failed logons, lockouts, account changes
 │   ├── time_range.py            Time range handling
 │   ├── trend_engine.py          Run history and comparison
+│   ├── unknown_events.py        Template for events without a definition
+│   ├── update_check.py          Optional "is there a newer release" check
 │   ├── version.py               Version number
 │   └── xml_exporter.py          XML export
 │
@@ -297,6 +315,85 @@ reports\history.json
 ```
 
 (`reports` is created in the folder you run the command from.)
+
+## Logs, filters and exports
+
+**Logs.** The window has a *Logs to analyze* row: System (default),
+Application and Security. From source or the command line use
+`--logs System,Application,Security`.
+
+- The level selection applies to System and Application.
+- The **Security** log is read by Event ID instead of level, because audit
+  events are Information/Audit events. Only these IDs are collected: 1102,
+  4625, 4697, 4698, 4719, 4720, 4722, 4724, 4725, 4726, 4728, 4732, 4740,
+  4756, 4771. Reading it needs administrator rights (or membership in the
+  *Event Log Readers* group for remote computers).
+- The dashboard shows a **Security** card: failed logons, the accounts and
+  sources behind them, lockouts, account/group changes, cleared logs.
+
+**Filters** (command line): `--event-ids 41,6008,7000-7040`,
+`--exclude-event-ids 10016`, `--sources dcom,disk`, `--keywords timeout`.
+All given filters must match. Repeated events are also collapsed into a
+*Summary of repeated events* table at the top of `event_report.html`.
+
+**Exports** (command line): `--export csv,json` writes `events.csv` (UTF-8
+with BOM, opens correctly in Excel, formulas neutralized) and `events.json`.
+`--xml per_event|combined|none` chooses between one XML file per event (the
+original behavior and still the default), a single `events.xml`, or none.
+`--syslog host[:port] --syslog-protocol udp|tcp` forwards each analyzed event
+to a syslog/SIEM server as an RFC 5424 message. Excel `.xlsx` is not
+produced; the CSV file is meant for that. For a PDF, open `event_report.html`
+or `dashboard.html` and use the browser's *Print to PDF* (print styles are
+included).
+
+## Command line and scheduled runs
+
+Any argument starting with `-` runs without a window, also from the packaged
+`.exe`:
+
+```cmd
+WindowsEventAnalyzer.exe --logs System,Application --hours 24 --export csv --quiet
+```
+
+| Option | Meaning |
+|---|---|
+| `--hours N` / `--start` / `--end` | Time range (ISO 8601, UTC if no zone) |
+| `--levels critical,error,warning` | Levels to collect |
+| `--evtx file.evtx` | Analyze a saved file |
+| `--hosts 10.0.0.5,10.0.0.6` / `--hosts-file list.txt` | Remote computers |
+| `--user`, `--domain` | Remote account; the password is read from the environment variable `WEA_PASSWORD` (change the name with `--password-env`). There is deliberately no password option. |
+| `--output-dir` | Where reports go |
+| `--email-to`, `--email-from`, `--smtp host[:port]`, `--smtp-user` | Mail the dashboard of the lowest-scoring computer (STARTTLS; password from `WEA_SMTP_PASSWORD`) |
+| `--fail-below SCORE` | Exit code 1 when a health score is lower |
+| `--quiet` | Only result lines |
+| `--check-update` | Look for a newer release and exit |
+
+Exit codes: `0` finished, `1` score below `--fail-below`, `2` bad arguments or
+nothing could be analyzed, `3` some remote computers failed. With several
+remote computers, `reports\remote\summary.html` compares them (lowest score
+first). The packaged `.exe` has no console, so run it from Task Scheduler and
+read the exit code, the reports or `%LOCALAPPDATA%\WindowsEventAnalyzer\last_run.log`
+(only written if there is no console).
+
+Task Scheduler example (daily at 07:00, run as an account that may read the
+logs; set `WEA_PASSWORD` as a machine/user environment variable for remote
+runs):
+
+```cmd
+schtasks /Create /TN "Event Analyzer" /SC DAILY /ST 07:00 /RL HIGHEST ^
+  /TR "\"C:\Tools\WindowsEventAnalyzer.exe\" --logs System,Security --export csv --quiet --fail-below 80"
+```
+
+## Events without a definition
+
+When events have no entry in `event_definitions.json`, a file
+`unknown_events_template.json` is written next to the reports. It lists each
+unknown Event ID and provider with how often it was seen and an example
+message. Fill in `name`, `cause`, `severity` and `solutions`, delete the
+`_` hint fields (they are ignored anyway) and copy the entries into your
+custom database folder (see
+[Changes without rebuilding the .exe](#changes-without-rebuilding-the-exe)).
+Entries with an empty name or cause are ignored until completed.
 
 ## Analyze an EVTX file
 
@@ -543,13 +640,17 @@ Detailed event report including:
 
 Summary dashboard including:
 
-- Health score
-- What lowered the score
-- Correlation findings
-- Recommendations
+- Health score (with a score bar) and what lowered it
+- Correlation findings and recommendations
 - Trends since the previous run
+- Events over time (stacked by severity) and counts by severity
 - Top 10 Event IDs
-- Event counts by severity
+- Security card (when Security events were collected)
+
+The dashboard and report follow the system light/dark setting and print
+cleanly. Optional exports are described under
+[Logs, filters and exports](#logs-filters-and-exports); a comparison page for
+several remote computers is `reports\remote\summary.html`.
 
 ---
 
@@ -559,6 +660,7 @@ Summary dashboard including:
 |---|---|---|
 | Reports, XML, `history.json` | `%LOCALAPPDATA%\WindowsEventAnalyzer\reports` | `reports\` in the current folder |
 | Remote PC reports | `...\reports\remote\host-<ip>` | `reports\remote\host-<ip>` |
+| Microsoft Learn answers (30-day cache) | `%LOCALAPPDATA%\WindowsEventAnalyzer\cache\learn_lookup.json` | same |
 | Saved IP list and domain | `%LOCALAPPDATA%\WindowsEventAnalyzer\remote_targets.json` | same |
 | Your own database files | `%LOCALAPPDATA%\WindowsEventAnalyzer\database\` | the `database` folder |
 
@@ -585,21 +687,30 @@ window tests are skipped when Tk is not installed.
 # Privacy and security notes
 
 - The Microsoft Learn lookup sends only the Event ID and provider name;
-  raw event data is not sent. It needs an internet connection.
+  raw event data is not sent. Answers are cached for 30 days and reused
+  offline. Security events are never looked up.
+- `--check-update` is the only thing that contacts GitHub, once, and only when
+  you run it. Nothing about the computer or its logs is sent.
+- Syslog forwarding and e-mail send event text to the server you name; use
+  TLS-capable infrastructure for sensitive logs (syslog here is plain UDP/TCP).
+- Remote passwords for command-line runs come from environment variables, never
+  from arguments (which other users can see in the process list).
 - Remote passwords are never written to disk. The saved IP list and domain are
   stored in plain text in your user profile, and can be forgotten from the app.
 - Reports contain event data and computer names. Store and share them like any
   other log data.
 - Use remote collection only on computers you are authorized to query.
-- The executable is not code-signed (see [Build the executable](#build-the-executable)).
+- The executable is not code-signed unless you sign it: set the environment
+  variable `SIGN_CERT_THUMBPRINT` to a code-signing certificate installed on
+  the build PC and `build.bat` signs and verifies it with `signtool`.
 
 ---
 
 # Roadmap
 
-- Charts and graphs
-- Application, Security and Operational logs
+- Other Operational logs (PowerShell, Task Scheduler, Defender)
 - Batch EVTX processing
+- Native `.xlsx` export
 - AI root cause analysis
 
 ---

@@ -22,7 +22,11 @@ from tkinter import (
 )
 from tkinter.scrolledtext import ScrolledText
 
+from modules.event_channels import SUPPORTED_LOGS
 from modules.paths import get_reports_dir
+from modules.remote_check import check_remote_connection
+from modules.remote_summary import generate_remote_summary
+from modules.version import __version__
 from modules.event_levels import DEFAULT_EVENT_LEVELS, EVENT_LEVEL_NAMES
 from modules.event_reader import get_recent_events
 from modules.remote_settings import (
@@ -76,7 +80,7 @@ class EventAnalyzerApp:
             }
             remote_settings_error = str(error)
 
-        root.title("Windows Event Analyzer")
+        root.title(f"Windows Event Analyzer {__version__}")
         root.geometry("1000x700")
         root.minsize(760, 520)
 
@@ -169,6 +173,30 @@ class EventAnalyzerApp:
             checkbutton.pack(side="left", padx=(0, 10))
             self.level_vars[level] = variable
             self.level_checkbuttons.append(checkbutton)
+
+        logs_frame = LabelFrame(
+            root,
+            text=(
+                "Logs to analyze (Security needs administrator rights and "
+                "ignores the level selection)"
+            ),
+            padx=12,
+            pady=6,
+        )
+        logs_frame.pack(fill="x", padx=12, pady=(0, 8))
+        self.log_vars = {}
+        self.log_checkbuttons = []
+        for log_name in SUPPORTED_LOGS:
+            variable = BooleanVar(value=log_name == "System")
+            checkbutton = Checkbutton(
+                logs_frame,
+                text=log_name,
+                variable=variable,
+            )
+            checkbutton.pack(side="left", padx=(0, 10))
+            self.log_vars[log_name] = variable
+            self.log_checkbuttons.append(checkbutton)
+        self.selected_logs = ("System",)
 
         remote_frame = LabelFrame(
             root,
@@ -301,6 +329,19 @@ class EventAnalyzerApp:
         self.forget_remote_button.grid(
             row=4,
             column=2,
+            columnspan=2,
+            sticky="w",
+            pady=(6, 0),
+        )
+
+        self.test_remote_button = Button(
+            remote_frame,
+            text="Test connection",
+            command=self.test_remote_connection,
+        )
+        self.test_remote_button.grid(
+            row=4,
+            column=4,
             columnspan=2,
             sticky="w",
             pady=(6, 0),
@@ -467,6 +508,20 @@ class EventAnalyzerApp:
             )
             return
 
+        selected_logs = tuple(
+            name
+            for name, variable in self.log_vars.items()
+            if variable.get()
+        )
+        if not selected_logs:
+            messagebox.showerror(
+                "No log selected",
+                "Select at least one log to analyze.",
+                parent=self.root,
+            )
+            return
+        self.selected_logs = selected_logs
+
         remote_username = self.remote_username.get().strip()
         remote_domain = self.remote_domain.get().strip()
         remote_password = self.remote_password.get()
@@ -596,6 +651,7 @@ class EventAnalyzerApp:
                     collection_finished_callback=(
                         self.signal_collection_finished
                     ),
+                    logs=self._logs(),
                 )
         except Exception:
             self.output_queue.put(("event_level", None))
@@ -649,15 +705,13 @@ class EventAnalyzerApp:
         with ThreadPoolExecutor(max_workers=worker_count) as executor:
             futures = {
                 executor.submit(
-                    get_recent_events,
-                    start_time=start_time,
-                    end_time=end_time,
-                    levels=selected_levels,
-                    remote_options={
-                        **remote_options,
-                        "computer": target,
-                    },
-                    cancellation_event=cancellation_event,
+                    self._collect_logs,
+                    target,
+                    start_time,
+                    end_time,
+                    selected_levels,
+                    remote_options,
+                    cancellation_event,
                 ): target
                 for target in remote_targets
             }
@@ -692,6 +746,7 @@ class EventAnalyzerApp:
 
         successful_hosts = 0
         reports_root = get_reports_dir()
+        host_results = []
 
         for target in remote_targets:
             if target not in collected_events:
@@ -711,7 +766,7 @@ class EventAnalyzerApp:
             )
 
             try:
-                self.analyze(
+                host_summary = self.analyze(
                     None,
                     start_time,
                     end_time,
@@ -723,8 +778,12 @@ class EventAnalyzerApp:
                     ),
                     collected_events=collected_events[target],
                     output_dir=host_reports,
+                    logs=self._logs(),
                 )
             except Exception as error:
+                host_results.append(
+                    {"computer": target, "summary": None, "error": str(error)}
+                )
                 failures.append(target)
                 print(
                     f"Analysis failed for {target}: {error}\n"
@@ -733,9 +792,23 @@ class EventAnalyzerApp:
                 continue
 
             successful_hosts += 1
+            if isinstance(host_summary, dict):
+                host_results.append(
+                    {"computer": target, "summary": host_summary,
+                     "error": None}
+                )
             self.output_queue.put(
                 ("dashboard", str(host_reports / "dashboard.html"))
             )
+
+        if host_results and len(remote_targets) > 1:
+            try:
+                page = generate_remote_summary(
+                    host_results, reports_root / "remote"
+                )
+                print(f"\nComparison of all computers: {page}")
+            except OSError as error:
+                print(f"\nCould not write the comparison page: {error}")
 
         if cancellation_event.is_set():
             result = "cancelled"
@@ -747,6 +820,80 @@ class EventAnalyzerApp:
             result = "success"
 
         self.output_queue.put(("finished", result))
+
+    def _logs(self):
+        return self.__dict__.get("selected_logs", ("System",))
+
+    def _collect_logs(
+        self,
+        target,
+        start_time,
+        end_time,
+        selected_levels,
+        remote_options,
+        cancellation_event,
+    ):
+        """Events of every selected log from one remote computer."""
+
+        events = []
+
+        for log_name in self._logs():
+            kwargs = {}
+            if log_name != "System":
+                kwargs["log_name"] = log_name
+            events.extend(
+                get_recent_events(
+                    start_time=start_time,
+                    end_time=end_time,
+                    levels=selected_levels,
+                    remote_options={**remote_options, "computer": target},
+                    cancellation_event=cancellation_event,
+                    **kwargs,
+                )
+            )
+
+        return events
+
+    def test_remote_connection(self):
+        """Try the first target with the typed credentials."""
+
+        try:
+            targets = parse_remote_targets(
+                self.remote_targets.get("1.0", "end")
+            )
+        except ValueError as error:
+            messagebox.showerror(
+                "Invalid remote target list", str(error), parent=self.root
+            )
+            return
+
+        if not targets:
+            messagebox.showerror(
+                "Remote targets required",
+                "Enter a computer IP address to test.",
+                parent=self.root,
+            )
+            return
+
+        options = {
+            "computer": targets[0],
+            "username": self.remote_username.get().strip(),
+            "domain": self.remote_domain.get().strip() or None,
+            "password": self.remote_password.get(),
+        }
+        self.status.set(f"Testing connection to {targets[0]}...")
+
+        def work():
+            ok, message = check_remote_connection(options)
+            self.root.after(0, lambda: self._show_connection_result(ok, message))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _show_connection_result(self, ok, message):
+        self.status.set("Ready")
+        (messagebox.showinfo if ok else messagebox.showerror)(
+            "Connection test", message, parent=self.root
+        )
 
     def poll_output(self):
         while True:
@@ -868,6 +1015,9 @@ class EventAnalyzerApp:
         self.remember_targets_checkbutton.configure(state=state)
         self.remember_domain_checkbutton.configure(state=state)
         self.forget_remote_button.configure(state=state)
+        self.test_remote_button.configure(state=state)
+        for checkbutton in self.log_checkbuttons:
+            checkbutton.configure(state=state)
         self.reports_button.configure(state=state)
         self.dashboard_button.configure(state=state)
 

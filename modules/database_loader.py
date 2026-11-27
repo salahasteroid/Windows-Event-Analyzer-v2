@@ -112,7 +112,9 @@ def _valid_definition(definition):
     return (
         isinstance(definition, dict)
         and isinstance(definition.get("name"), str)
+        and definition["name"].strip() != ""
         and isinstance(definition.get("cause"), str)
+        and definition["cause"].strip() != ""
         and _is_number(definition.get("severity"))
         and isinstance(definition.get("solutions"), list)
         and (
@@ -135,7 +137,7 @@ def _clean_event_definitions(database):
         if len(valid) != len(entries):
             print(
                 f"Warning: ignoring incomplete definition for Event ID "
-                f"{event_id} (needs name, cause, severity and solutions)."
+                f"{event_id} (needs a name, a cause, severity and solutions)."
             )
 
         if not str(event_id).isdigit() or not valid:

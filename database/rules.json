@@ -617,6 +617,241 @@
         }
       ],
       "severity": 20
+    },
+    {
+      "id": "failed-logon-burst",
+      "title": "Many failed logons",
+      "finding": "Many failed logons in a short time. Possible password guessing or a service with a wrong password.",
+      "recommendations": [
+        "Check the top failed accounts and source addresses in the Security summary.",
+        "Block or investigate the source if it is not a known computer.",
+        "Check for services or tasks using an old password."
+      ],
+      "any_of": [
+        {
+          "id": 4625,
+          "sources": [
+            "Microsoft-Windows-Security-Auditing"
+          ]
+        }
+      ],
+      "min_count": 10,
+      "window_minutes": 10,
+      "severity": 85,
+      "score_penalty": 10
+    },
+    {
+      "id": "account-lockouts",
+      "title": "Account lockouts",
+      "finding": "One or more accounts were locked out.",
+      "recommendations": [
+        "Find the computer causing the failed logons (caller computer in the lockout event).",
+        "Check for old saved passwords, mapped drives and services."
+      ],
+      "any_of": [
+        {
+          "id": 4740,
+          "sources": [
+            "Microsoft-Windows-Security-Auditing"
+          ]
+        }
+      ],
+      "severity": 60,
+      "score_penalty": 5
+    },
+    {
+      "id": "new-account-with-group-change",
+      "title": "New account added to a group",
+      "finding": "A new account was created and added to a group within an hour. Confirm this was authorized.",
+      "recommendations": [
+        "Confirm who created the account and added it to the group.",
+        "Review the members of privileged groups."
+      ],
+      "all_of": [
+        {
+          "id": 4720,
+          "sources": [
+            "Microsoft-Windows-Security-Auditing"
+          ]
+        },
+        {
+          "id": 4732,
+          "sources": [
+            "Microsoft-Windows-Security-Auditing"
+          ]
+        }
+      ],
+      "window_minutes": 60,
+      "severity": 90,
+      "score_penalty": 10
+    },
+    {
+      "id": "privileged-group-changes",
+      "title": "Group membership changes",
+      "finding": "Security group membership was changed.",
+      "recommendations": [
+        "Confirm the changes were authorized, especially for Administrators and other privileged groups."
+      ],
+      "any_of": [
+        {
+          "id": 4728,
+          "sources": [
+            "Microsoft-Windows-Security-Auditing"
+          ]
+        },
+        {
+          "id": 4732,
+          "sources": [
+            "Microsoft-Windows-Security-Auditing"
+          ]
+        },
+        {
+          "id": 4756,
+          "sources": [
+            "Microsoft-Windows-Security-Auditing"
+          ]
+        }
+      ],
+      "severity": 65
+    },
+    {
+      "id": "audit-log-cleared",
+      "title": "Security log cleared",
+      "finding": "The Security audit log was cleared. Confirm this was authorized.",
+      "recommendations": [
+        "Check who cleared the log and why.",
+        "Review events around this time on other computers."
+      ],
+      "any_of": [
+        {
+          "id": 1102,
+          "sources": [
+            "Microsoft-Windows-Eventlog"
+          ]
+        }
+      ],
+      "severity": 85,
+      "score_penalty": 10
+    },
+    {
+      "id": "audit-policy-changed",
+      "title": "Audit policy changed",
+      "finding": "The system audit policy was changed.",
+      "recommendations": [
+        "Confirm the change was authorized and check what was changed."
+      ],
+      "any_of": [
+        {
+          "id": 4719,
+          "sources": [
+            "Microsoft-Windows-Security-Auditing"
+          ]
+        }
+      ],
+      "severity": 70,
+      "score_penalty": 5
+    },
+    {
+      "id": "persistence-indicators",
+      "title": "New service or scheduled task (audit)",
+      "finding": "A service or scheduled task was created (audit events). Confirm it is expected.",
+      "recommendations": [
+        "Check the service or task name and the program it runs."
+      ],
+      "any_of": [
+        {
+          "id": 4697,
+          "sources": [
+            "Microsoft-Windows-Security-Auditing"
+          ]
+        },
+        {
+          "id": 4698,
+          "sources": [
+            "Microsoft-Windows-Security-Auditing"
+          ]
+        }
+      ],
+      "severity": 50
+    },
+    {
+      "id": "application-crashes",
+      "title": "Repeated application crashes",
+      "finding": "Applications are crashing or hanging repeatedly (3 or more times).",
+      "recommendations": [
+        "Note the faulting application and module in the event data.",
+        "Update or reinstall the program; check recent updates and drivers."
+      ],
+      "any_of": [
+        {
+          "id": 1000,
+          "sources": [
+            "Application Error"
+          ]
+        },
+        {
+          "id": 1002,
+          "sources": [
+            "Application Hang"
+          ]
+        }
+      ],
+      "min_count": 3,
+      "severity": 50,
+      "score_penalty": 5
+    },
+    {
+      "id": "low-virtual-memory",
+      "title": "Low virtual memory",
+      "finding": "Windows ran low on virtual memory.",
+      "recommendations": [
+        "Find the memory-hungry program listed in the event.",
+        "Add memory or increase the page file."
+      ],
+      "any_of": [
+        {
+          "id": 2004,
+          "sources": [
+            "Microsoft-Windows-Resource-Exhaustion-Detector"
+          ]
+        }
+      ],
+      "severity": 65,
+      "score_penalty": 5
+    },
+    {
+      "id": "vss-errors",
+      "title": "Volume Shadow Copy errors",
+      "finding": "The Volume Shadow Copy Service reported errors. Backups and restore points may be affected.",
+      "recommendations": [
+        "Check the VSS writers (vssadmin list writers) and free space on the volume."
+      ],
+      "any_of": [
+        {
+          "id": 8193,
+          "sources": [
+            "VSS"
+          ]
+        }
+      ],
+      "severity": 55
+    },
+    {
+      "id": "installation-failures",
+      "title": "Installation failures",
+      "finding": "A Windows Installer package failed to install.",
+      "recommendations": [
+        "Check the product named in the event and free disk space; run the installer again as administrator."
+      ],
+      "any_of": [
+        {
+          "id": 11708,
+          "sources": [
+            "MsiInstaller"
+          ]
+        }
+      ],
+      "severity": 40
     }
   ]
 }

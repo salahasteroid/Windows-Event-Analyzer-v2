@@ -348,21 +348,35 @@
             "Check Device Manager for the device"
         ]
     },
-    "1001": {
-        "name": "System crash (bugcheck) recorded",
-        "sources": [
-            "Microsoft-Windows-WER-SystemErrorReporting",
-            "BugCheck"
-        ],
-        "cause": "The computer restarted after a stop error (blue screen)",
-        "severity": 90,
-        "solutions": [
-            "Note the bugcheck code in the event data and look it up",
-            "Update or roll back recently installed drivers and updates",
-            "Analyze the memory dump with WinDbg",
-            "Run memory diagnostics if the code points to memory"
-        ]
-    },
+    "1001": [
+        {
+            "name": "System crash (bugcheck) recorded",
+            "sources": [
+                "Microsoft-Windows-WER-SystemErrorReporting",
+                "BugCheck"
+            ],
+            "cause": "The computer restarted after a stop error (blue screen)",
+            "severity": 90,
+            "solutions": [
+                "Note the bugcheck code in the event data and look it up",
+                "Update or roll back recently installed drivers and updates",
+                "Analyze the memory dump with WinDbg",
+                "Run memory diagnostics if the code points to memory"
+            ]
+        },
+        {
+            "name": "Windows Error Reporting record",
+            "sources": [
+                "Windows Error Reporting"
+            ],
+            "cause": "Windows recorded details of a program problem",
+            "severity": 20,
+            "solutions": [
+                "Read the event data for the program and the error",
+                "Look for a matching Application Error (1000) event"
+            ]
+        }
+    ],
     "1014": {
         "name": "DNS name resolution timed out",
         "sources": [
@@ -764,6 +778,274 @@
         "solutions": [
             "Check the alert code in the event",
             "Check certificates and TLS settings on both sides"
+        ]
+    },
+    "4625": {
+        "name": "Failed logon",
+        "sources": [
+            "Microsoft-Windows-Security-Auditing"
+        ],
+        "cause": "An account failed to log on (wrong password, unknown user, locked or disabled account)",
+        "severity": 35,
+        "solutions": [
+            "Check the account name and the source address in the event data",
+            "Look for many failures from one source (password guessing)",
+            "Check for services or scheduled tasks using an old password"
+        ]
+    },
+    "4740": {
+        "name": "Account locked out",
+        "sources": [
+            "Microsoft-Windows-Security-Auditing"
+        ],
+        "cause": "An account was locked out after too many failed logons",
+        "severity": 55,
+        "solutions": [
+            "Find the computer causing the failed logons (caller computer in the event data)",
+            "Check for old saved passwords, mapped drives and services",
+            "Unlock the account after fixing the cause"
+        ]
+    },
+    "4720": {
+        "name": "User account created",
+        "sources": [
+            "Microsoft-Windows-Security-Auditing"
+        ],
+        "cause": "A new user account was created",
+        "severity": 40,
+        "solutions": [
+            "Confirm the account was created by an authorized administrator",
+            "Check which groups it was added to"
+        ]
+    },
+    "4722": {
+        "name": "User account enabled",
+        "sources": [
+            "Microsoft-Windows-Security-Auditing"
+        ],
+        "cause": "A user account was enabled",
+        "severity": 30,
+        "solutions": [
+            "Confirm the account was enabled on purpose"
+        ]
+    },
+    "4724": {
+        "name": "Password reset attempted",
+        "sources": [
+            "Microsoft-Windows-Security-Auditing"
+        ],
+        "cause": "An administrator or process tried to reset an account password",
+        "severity": 35,
+        "solutions": [
+            "Confirm the reset was authorized",
+            "Check who performed it (subject in the event data)"
+        ]
+    },
+    "4725": {
+        "name": "User account disabled",
+        "sources": [
+            "Microsoft-Windows-Security-Auditing"
+        ],
+        "cause": "A user account was disabled",
+        "severity": 25,
+        "solutions": [
+            "Confirm the account was disabled on purpose"
+        ]
+    },
+    "4726": {
+        "name": "User account deleted",
+        "sources": [
+            "Microsoft-Windows-Security-Auditing"
+        ],
+        "cause": "A user account was deleted",
+        "severity": 35,
+        "solutions": [
+            "Confirm the deletion was authorized"
+        ]
+    },
+    "4728": {
+        "name": "Member added to a global security group",
+        "sources": [
+            "Microsoft-Windows-Security-Auditing"
+        ],
+        "cause": "An account was added to a security-enabled global group",
+        "severity": 40,
+        "solutions": [
+            "Confirm the change was authorized, especially for privileged groups"
+        ]
+    },
+    "4732": {
+        "name": "Member added to a local security group",
+        "sources": [
+            "Microsoft-Windows-Security-Auditing"
+        ],
+        "cause": "An account was added to a security-enabled local group (for example Administrators)",
+        "severity": 45,
+        "solutions": [
+            "Confirm the change was authorized, especially for the Administrators group",
+            "Check who made the change"
+        ]
+    },
+    "4756": {
+        "name": "Member added to a universal security group",
+        "sources": [
+            "Microsoft-Windows-Security-Auditing"
+        ],
+        "cause": "An account was added to a security-enabled universal group",
+        "severity": 40,
+        "solutions": [
+            "Confirm the change was authorized, especially for privileged groups"
+        ]
+    },
+    "4719": {
+        "name": "Audit policy changed",
+        "sources": [
+            "Microsoft-Windows-Security-Auditing"
+        ],
+        "cause": "The system audit policy was changed",
+        "severity": 70,
+        "solutions": [
+            "Confirm the change was authorized",
+            "Check who changed it and what was changed"
+        ]
+    },
+    "4697": {
+        "name": "Service installed in the system",
+        "sources": [
+            "Microsoft-Windows-Security-Auditing"
+        ],
+        "cause": "A service was installed on the system",
+        "severity": 45,
+        "solutions": [
+            "Confirm the service is expected",
+            "Check the service file path for anything unfamiliar"
+        ]
+    },
+    "4698": {
+        "name": "Scheduled task created",
+        "sources": [
+            "Microsoft-Windows-Security-Auditing"
+        ],
+        "cause": "A scheduled task was created",
+        "severity": 45,
+        "solutions": [
+            "Confirm the task is expected",
+            "Check the program the task runs"
+        ]
+    },
+    "4771": {
+        "name": "Kerberos pre-authentication failed",
+        "sources": [
+            "Microsoft-Windows-Security-Auditing"
+        ],
+        "cause": "A Kerberos ticket request failed, usually a wrong password",
+        "severity": 35,
+        "solutions": [
+            "Check the account and the client address in the event data",
+            "Look for many failures from one source"
+        ]
+    },
+    "1102": {
+        "name": "Audit log cleared",
+        "sources": [
+            "Microsoft-Windows-Eventlog"
+        ],
+        "cause": "The Security audit log was cleared",
+        "severity": 85,
+        "solutions": [
+            "Confirm the clearing was authorized",
+            "Check who cleared it (subject in the event data)",
+            "Review other events around this time"
+        ]
+    },
+    "1000": {
+        "name": "Application crash",
+        "sources": [
+            "Application Error"
+        ],
+        "cause": "A program crashed (faulting application and module are in the event data)",
+        "severity": 45,
+        "solutions": [
+            "Note the faulting application and module in the event data",
+            "Update or reinstall the program",
+            "Check for a recent update or a new driver"
+        ]
+    },
+    "1002": {
+        "name": "Application hang",
+        "sources": [
+            "Application Hang"
+        ],
+        "cause": "A program stopped responding",
+        "severity": 40,
+        "solutions": [
+            "Note the program in the event data",
+            "Update or reinstall the program",
+            "Check disk and memory load at that time"
+        ]
+    },
+    "1026": {
+        "name": ".NET Runtime error",
+        "sources": [
+            ".NET Runtime"
+        ],
+        "cause": "A .NET application had an unhandled exception",
+        "severity": 45,
+        "solutions": [
+            "Read the exception text in the event message",
+            "Update or reinstall the application",
+            "Check that the required .NET version is installed"
+        ]
+    },
+    "11708": {
+        "name": "Installation failed",
+        "sources": [
+            "MsiInstaller"
+        ],
+        "cause": "A Windows Installer package failed to install",
+        "severity": 45,
+        "solutions": [
+            "Check the product named in the event",
+            "Run the installer again as administrator",
+            "Check free disk space and the installer log"
+        ]
+    },
+    "8193": {
+        "name": "Volume Shadow Copy error",
+        "sources": [
+            "VSS"
+        ],
+        "cause": "The Volume Shadow Copy Service reported an error",
+        "severity": 55,
+        "solutions": [
+            "Read the error code in the event",
+            "Check the VSS service and the writers (vssadmin list writers)",
+            "Check free space on the volume"
+        ]
+    },
+    "2004": {
+        "name": "Low virtual memory",
+        "sources": [
+            "Microsoft-Windows-Resource-Exhaustion-Detector"
+        ],
+        "cause": "Windows detected that it was running out of virtual memory",
+        "severity": 60,
+        "solutions": [
+            "Check which programs use the most memory (listed in the event)",
+            "Close or fix the memory-hungry program",
+            "Add memory or increase the page file"
+        ]
+    },
+    "33": {
+        "name": "Side-by-side configuration error",
+        "sources": [
+            "SideBySide"
+        ],
+        "cause": "A program could not load because of a missing or wrong component",
+        "severity": 35,
+        "solutions": [
+            "Reinstall the program or its Visual C++ runtime",
+            "Check the component named in the event"
         ]
     }
 }

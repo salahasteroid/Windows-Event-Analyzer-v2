@@ -2,6 +2,7 @@ import win32evtlog
 import xml.etree.ElementTree as ET
 
 from modules.event_data import extract_event_data
+from modules.event_channels import build_query, normalize_logs
 from modules.event_levels import normalize_event_levels
 from modules.message_formatter import MessageResolver
 from modules.time_range import format_event_log_time, resolve_time_range
@@ -38,10 +39,13 @@ def get_recent_events(
     end_time=None,
     levels=None,
     remote_options=None,
-    cancellation_event=None
+    cancellation_event=None,
+    log_name="System"
 ):
 
     events = []
+
+    log_name = normalize_logs([log_name])[0]
 
     start_time, end_time = resolve_time_range(
         start_time,
@@ -50,22 +54,11 @@ def get_recent_events(
     if levels is not None:
         levels = normalize_event_levels(levels)
 
-    conditions = [
-        "TimeCreated[@SystemTime >= "
-        f"'{format_event_log_time(start_time)}' and @SystemTime <= "
-        f"'{format_event_log_time(end_time)}']"
-    ]
-    if levels is not None:
-        level_conditions = " or ".join(
-            f"Level={level}"
-            for level in levels
-        )
-        conditions.append(f"({level_conditions})")
-
-    query = (
-        "*[System["
-        + " and ".join(conditions)
-        + "]]"
+    query = build_query(
+        log_name,
+        levels,
+        start_time,
+        end_time
     )
 
     if cancellation_event is not None and cancellation_event.is_set():
@@ -105,13 +98,13 @@ def get_recent_events(
 
     if session is None:
         handle = win32evtlog.EvtQuery(
-            "System",
+            log_name,
             win32evtlog.EvtQueryReverseDirection,
             query
         )
     else:
         handle = win32evtlog.EvtQuery(
-            "System",
+            log_name,
             win32evtlog.EvtQueryReverseDirection,
             query,
             session
@@ -201,6 +194,8 @@ def get_recent_events(
                     "Computer": computer.text
                     if computer is not None
                     else "",
+
+                    "Channel": log_name,
 
                     "Time": time_created.attrib.get(
                         "SystemTime",
