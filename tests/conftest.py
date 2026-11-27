@@ -70,6 +70,8 @@ def _isolated_working_directory(tmp_path, monkeypatch):
     """Tests that use the default "reports" folder write into a temp dir."""
 
     monkeypatch.chdir(tmp_path)
+    # Caches, history and saved settings go to a throw-away profile folder.
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "appdata"))
 
 
 # The window tests need Tk, which some minimal Python installs lack.

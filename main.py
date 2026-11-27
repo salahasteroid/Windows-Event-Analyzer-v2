@@ -49,9 +49,18 @@ from modules.correlation_engine import (
 )
 
 from modules.paths import get_reports_dir
+from modules.event_channels import event_selected, normalize_logs
 from modules.event_data import format_event_data_item
-from modules.internet_lookup import lookup_events
+from modules.event_filter import filter_events
+from modules.exporters import (
+    export_events,
+    forward_syslog,
+    normalize_export_formats
+)
+from modules.internet_lookup import get_search_url, lookup_events
+from modules.security_summary import summarize_security
 from modules.time_range import resolve_time_range
+from modules.unknown_events import write_unknown_template
 from modules.event_levels import normalize_event_levels
 
 
@@ -66,13 +75,35 @@ def main(
     collection_finished_callback=None,
     collected_events=None,
     output_dir=None,
+    logs=None,
+    event_ids=None,
+    exclude_event_ids=None,
+    sources=None,
+    keywords=None,
+    export_formats=None,
+    xml_mode="per_event",
+    syslog=None,
 ):
+    """Collect, analyze and report.
+
+    logs: "System", "Application" and/or "Security" (default System).
+    event_ids / exclude_event_ids / sources / keywords: optional filters.
+    export_formats: "csv" and/or "json" files next to the reports.
+    xml_mode: "per_event" (default), "combined" or "none".
+    syslog: {"host": ..., "port": 514, "protocol": "udp"} to forward events.
+
+    Returns a summary dict when reports were generated, None when stopped.
+    """
 
     print("=" * 80)
     print("WINDOWS EVENT ANALYZER")
     print("=" * 80)
 
-    if evtx_file is None and len(sys.argv) > 1:
+    if (
+        evtx_file is None
+        and len(sys.argv) > 1
+        and not sys.argv[1].startswith("-")
+    ):
         evtx_file = sys.argv[1]
 
     start_time, end_time = resolve_time_range(
@@ -80,6 +111,8 @@ def main(
         end_time
     )
     selected_levels = normalize_event_levels(selected_levels)
+    selected_logs = normalize_logs(logs)
+    formats = normalize_export_formats(export_formats)
     remote_options = remote_options or {}
 
     if evtx_file and remote_options:
@@ -111,12 +144,48 @@ def main(
 
     else:
 
-        events = get_recent_events(
-            start_time=start_time,
-            end_time=end_time,
-            levels=selected_levels,
-            remote_options=remote_options,
-            cancellation_event=cancellation_event
+        print(
+            "Logs: " + ", ".join(selected_logs) + "\n"
+        )
+
+        events = []
+
+        for log_name in selected_logs:
+
+            events.extend(
+                get_recent_events(
+                    start_time=start_time,
+                    end_time=end_time,
+                    levels=selected_levels,
+                    remote_options=remote_options,
+                    cancellation_event=cancellation_event,
+                    **(
+                        {"log_name": log_name}
+                        if log_name != "System"
+                        else {}
+                    )
+                )
+            )
+
+        if len(selected_logs) > 1:
+            events.sort(key=lambda item: item.get("Time", ""), reverse=True)
+
+    filtering = any((event_ids, exclude_event_ids, sources, keywords))
+
+    if filtering:
+
+        before = len(events)
+
+        events = filter_events(
+            events,
+            event_ids=event_ids,
+            exclude_event_ids=exclude_event_ids,
+            sources=sources,
+            keywords=keywords
+        )
+
+        print(
+            f"Filters kept {len(events)} of {before} event(s).\n"
         )
 
     if collection_finished_callback is not None:
@@ -209,6 +278,7 @@ def main(
         event
         for event in events
         if event["Level"] in (1, 2, 3)
+        and event.get("Channel") != "Security"
     ]
     if lookup_candidates:
         print(
@@ -242,22 +312,34 @@ def main(
         if stop_if_cancelled():
             return
 
-        if event["Level"] not in selected_levels:
+        if not event_selected(
+            event.get("Channel", ""),
+            event["Level"],
+            event["EventID"],
+            selected_levels
+        ):
             continue
+
+        lookup_key = (event["EventID"], event["Source"])
 
         analysis = analyze_event(
             event,
-            online_lookups.get(
-                (event["EventID"], event["Source"])
-            )
+            # Events that were not looked up (Security audit events,
+            # Information events) must not trigger one lookup each.
+            online_lookups.get(lookup_key)
+            or {
+                "status": "skipped",
+                "search_url": get_search_url(*lookup_key),
+            }
         )
 
-        if "RawXML" in event:
+        if "RawXML" in event and xml_mode == "per_event":
             export_xml(event, output_dir=output_dir)
 
         report_events.append({
             "EventID": event["EventID"],
             "Source": event["Source"],
+            "Channel": event.get("Channel", ""),
             "LevelName": get_level_name(
                 event["Level"]
             ),
@@ -496,6 +578,35 @@ def main(
                     f"({entry['previous_count']} -> {entry['count']})"
                 )
 
+    security_for_console = summarize_security(events)
+
+    if security_for_console is not None:
+
+        print(
+            "\nSecurity Summary\n"
+        )
+
+        print(
+            f"Failed logons: {security_for_console['failed_logons']}, "
+            f"lockouts: {security_for_console['lockouts']}, "
+            f"account changes: {security_for_console['account_changes']}, "
+            f"group changes: {security_for_console['group_changes']}, "
+            f"log cleared: {security_for_console['log_cleared']}"
+        )
+
+        for label, key in (
+            ("Top failed accounts", "top_failed_accounts"),
+            ("Top failed sources", "top_failed_sources"),
+        ):
+            if security_for_console[key]:
+                print(
+                    f"{label}: "
+                    + ", ".join(
+                        f"{name} ({count})"
+                        for name, count in security_for_console[key]
+                    )
+                )
+
     print(
         "\nPriority Actions\n"
     )
@@ -536,6 +647,8 @@ def main(
     if stop_if_cancelled():
         return
 
+    security = summarize_security(events)
+
     generate_html_report(
         report_events,
         output_dir=report_dir,
@@ -549,7 +662,39 @@ def main(
         output_dir=report_dir,
         score_breakdown=health_details,
         trends=trends,
+        security_summary=security,
     )
+
+    exported = export_events(
+        report_events,
+        events,
+        report_dir,
+        formats=formats,
+        xml_mode=xml_mode,
+        summary={
+            "health_score": health_score,
+            "findings": correlation_results,
+            "recommendations": smart_recommendations,
+            "logs": list(selected_logs),
+            "start_time": start_time.isoformat(),
+            "end_time": end_time.isoformat(),
+        },
+    )
+
+    template_path = write_unknown_template(report_events, report_dir)
+
+    syslog_sent = 0
+
+    if syslog:
+        try:
+            syslog_sent = forward_syslog(
+                report_events,
+                syslog["host"],
+                port=syslog.get("port", 514),
+                protocol=syslog.get("protocol", "udp"),
+            )
+        except (OSError, ValueError) as error:
+            print(f"\nSyslog forwarding failed: {error}")
 
     if not evtx_file:
         record_run(
@@ -571,9 +716,47 @@ def main(
         str(report_dir / "dashboard.html")
     )
 
+    for path in exported:
+        print(f"Export: {path}")
+
+    if template_path is not None:
+        print(
+            f"Events without a local definition: a template to fill in is "
+            f"at {template_path}"
+        )
+
+    if syslog:
+        print(
+            f"Syslog: sent {syslog_sent} event(s) to "
+            f"{syslog['host']}:{syslog.get('port', 514)}"
+        )
+
+    return {
+        "computer": remote_options.get("computer") or "local",
+        "logs": list(selected_logs),
+        "health_score": health_score,
+        "event_count": len(report_events),
+        "critical": critical_count,
+        "high": high_count,
+        "medium": medium_count,
+        "low": low_count,
+        "findings": correlation_results,
+        "report_dir": str(report_dir),
+        "exports": [str(path) for path in exported],
+        "unknown_template": (
+            str(template_path) if template_path is not None else None
+        ),
+    }
+
 
 if __name__ == "__main__":
-    if getattr(sys, "frozen", False):
+    command_line = len(sys.argv) > 1 and sys.argv[1].startswith("-")
+
+    if command_line:
+        from modules.cli import run_cli
+
+        sys.exit(run_cli(sys.argv[1:], main))
+    elif getattr(sys, "frozen", False):
         from modules.app_ui import run_app
 
         initial_evtx = (

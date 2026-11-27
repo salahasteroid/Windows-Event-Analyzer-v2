@@ -1,11 +1,17 @@
 import json
+import os
 import re
+import threading
 from collections import Counter
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
+from datetime import datetime, timedelta, timezone
 from html.parser import HTMLParser
+from pathlib import Path
 from urllib.error import URLError
 from urllib.parse import urlencode, urlsplit
 from urllib.request import Request, urlopen
+
+from modules.paths import get_user_data_dir
 
 
 _SEARCH_API = "https://learn.microsoft.com/api/search"
@@ -14,6 +20,7 @@ _MAX_SUMMARY_LENGTH = 900
 _MAX_LOOKUPS_PER_RUN = 20
 _MAX_WORKERS = 8
 _TIMEOUT_SECONDS = 3
+CACHE_TTL = timedelta(days=30)
 
 
 class _ArticleSectionParser(HTMLParser):
@@ -253,7 +260,88 @@ def lookup_event(event_id, source):
     }
 
 
-def lookup_events(events, cancellation_event=None):
+def get_cache_path():
+
+    return get_user_data_dir() / "cache" / "learn_lookup.json"
+
+
+def load_lookup_cache(path=None):
+    """Saved Microsoft Learn answers; a missing or damaged file gives {}."""
+
+    try:
+        with open(path or get_cache_path(), "r", encoding="utf-8") as file:
+            data = json.load(file)
+    except (OSError, ValueError):
+        return {}
+
+    return data if isinstance(data, dict) else {}
+
+
+def save_lookup_cache(cache, path=None):
+    """Write the cache. Failure is ignored: the cache is only a speed-up."""
+
+    path = Path(path or get_cache_path())
+    temporary_path = path.with_suffix(".tmp")
+
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(temporary_path, "w", encoding="utf-8") as file:
+            json.dump(cache, file)
+
+        os.replace(temporary_path, path)
+
+    except OSError:
+        return False
+
+    return True
+
+
+def _cache_key(event_id, source):
+
+    return f"{event_id}|{str(source).casefold()}"
+
+
+def lookup_event_cached(event_id, source, cache, now=None):
+    """lookup_event with a 30-day on-disk memory.
+
+    Found and no-match answers are reused while fresh. If Microsoft Learn
+    cannot be reached, an older saved answer is still used, so the analysis
+    keeps working offline.
+    """
+
+    now = now or datetime.now(timezone.utc)
+    key = _cache_key(event_id, source)
+    entry = cache.get(key)
+    saved_result = None
+    fresh = False
+
+    if isinstance(entry, dict) and isinstance(entry.get("result"), dict):
+
+        saved_result = entry["result"]
+
+        try:
+            saved_at = datetime.fromisoformat(entry["time"])
+            fresh = now - saved_at < CACHE_TTL
+        except (KeyError, TypeError, ValueError):
+            fresh = False
+
+    if fresh:
+        return {**saved_result, "from_cache": True}
+
+    result = lookup_event(event_id, source)
+
+    if result.get("status") in ("found", "no_match"):
+        cache[key] = {"time": now.isoformat(), "result": result}
+        return result
+
+    if saved_result is not None:
+        return {**saved_result, "from_cache": True, "stale": True}
+
+    return result
+
+
+def lookup_events(events, cancellation_event=None, use_cache=True):
     if cancellation_event is not None and cancellation_event.is_set():
         return {}
 
@@ -282,11 +370,19 @@ def lookup_events(events, cancellation_event=None):
         for key in ordered_keys[_MAX_LOOKUPS_PER_RUN:]
     }
 
+    cache = load_lookup_cache() if use_cache else None
+
     executor = ThreadPoolExecutor(
         max_workers=min(_MAX_WORKERS, len(selected_keys))
     )
+
+    def lookup(event_id, source):
+        if cache is None:
+            return lookup_event(event_id, source)
+        return lookup_event_cached(event_id, source, cache)
+
     pending = {
-        executor.submit(lookup_event, event_id, source): (
+        executor.submit(lookup, event_id, source): (
             event_id,
             source
         )
@@ -317,5 +413,8 @@ def lookup_events(events, cancellation_event=None):
             for future in pending:
                 future.cancel()
         executor.shutdown(wait=not cancelled)
+
+    if cache is not None and not cancelled:
+        save_lookup_cache(cache)
 
     return results

@@ -2,6 +2,7 @@ from Evtx.Evtx import Evtx
 import xml.etree.ElementTree as ET
 
 from modules.event_data import extract_event_data
+from modules.event_channels import event_selected
 from modules.event_levels import normalize_event_levels
 from modules.time_range import parse_event_time, resolve_time_range
 
@@ -85,7 +86,27 @@ def read_evtx(
                     else 0
                 )
 
-                if levels is not None and event_level not in levels:
+                channel_element = root.find(
+                    ".//e:Channel",
+                    ns
+                )
+                channel = (
+                    channel_element.text
+                    if channel_element is not None
+                    else ""
+                )
+                event_number = (
+                    int(event_id.text)
+                    if event_id is not None
+                    else 0
+                )
+
+                if not event_selected(
+                    channel,
+                    event_level,
+                    event_number,
+                    levels
+                ):
                     continue
 
                 provider = root.find(
@@ -145,6 +166,8 @@ def read_evtx(
                         if computer is not None
                         else ""
                     ),
+
+                    "Channel": channel,
 
                     "Time": (
                         event_time

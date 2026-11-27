@@ -4,6 +4,40 @@ from urllib.parse import urlsplit
 
 from modules.paths import get_reports_dir
 from modules.event_data import format_event_data_item
+from modules.event_grouping import group_events
+
+
+def _grouped_summary_html(events):
+    """Repeated events collapsed into one line each, with a count.
+
+    Only shown when something repeats; the full list follows below.
+    """
+
+    groups = group_events(events)
+
+    if all(group["count"] == 1 for group in groups):
+        return ""
+
+    rows = "".join(
+        "<tr>"
+        f"<td>{group['count']}</td>"
+        f"<td>{escape(str(group['event_id']), quote=True)}</td>"
+        f"<td>{escape(str(group['source']), quote=True)}</td>"
+        f"<td>{escape(str(group['level_name']), quote=True)}</td>"
+        f"<td>{escape(str(group['name'] or ''), quote=True)}</td>"
+        f"<td>{escape(str(group['first_time']), quote=True)}</td>"
+        f"<td>{escape(str(group['last_time']), quote=True)}</td>"
+        "</tr>"
+        for group in groups
+    )
+
+    return (
+        "<h2>Summary of repeated events</h2>"
+        "<table><tr><th>Count</th><th>Event ID</th><th>Source</th>"
+        "<th>Level</th><th>Name</th><th>First seen</th><th>Last seen</th>"
+        f"</tr>{rows}</table>"
+        "<h2>All events</h2>"
+    )
 
 
 def _format_reference(search_url):
@@ -40,9 +74,12 @@ def generate_html_report(events, output_dir=None):
     output_dir.mkdir(parents=True, exist_ok=True)
 
     html = """
-    <html>
+    <!DOCTYPE html>
+    <html lang="en">
     <head>
 
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>Windows Event Analyzer Report</title>
 
         <style>
@@ -93,6 +130,11 @@ def generate_html_report(events, output_dir=None):
                 text-decoration: none;
             }
 
+            @media print {
+                body { margin: 0; }
+                tr { break-inside: avoid; }
+            }
+
         </style>
 
     </head>
@@ -100,6 +142,8 @@ def generate_html_report(events, output_dir=None):
     <body>
 
         <h1>Windows Event Analyzer Report</h1>
+
+        __GROUPED_SUMMARY__
 
         <table>
 
@@ -118,6 +162,11 @@ def generate_html_report(events, output_dir=None):
                 <th>Reference</th>
             </tr>
     """
+
+    html = html.replace(
+        "__GROUPED_SUMMARY__",
+        _grouped_summary_html(events)
+    )
 
     for event in events:
 
