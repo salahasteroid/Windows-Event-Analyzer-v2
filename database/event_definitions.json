@@ -146,16 +146,18 @@
         ]
     },
     "41": {
-        "name": "Kernel-Power",
+        "name": "Unexpected restart (Kernel-Power)",
         "sources": [
             "Microsoft-Windows-Kernel-Power"
         ],
         "cause": "Unexpected shutdown",
         "severity": 95,
         "solutions": [
-            "Check power supply",
-            "Check CPU temperatures",
-            "Check RAM stability"
+            "Open the event and read BugcheckCode. If it is not 0, the PC crashed with a blue screen: convert the decimal number to hex (for example 159 = 0x9F) and look up that stop code; also check Event 1001 nearby.",
+            "If PowerButtonTimestamp is not 0, someone forced the power off with the power button (usually because the PC was frozen).",
+            "If every value is 0, suspect power: unplugged or drained battery, power cut, faulty or weak power supply, or a hard hang.",
+            "Check what changed just before: drivers, updates or new services (Event 7045) installed shortly before the first restart.",
+            "Check CPU/GPU temperatures and test RAM if restarts keep happening with no stop code."
         ]
     },
     "43": {
@@ -525,16 +527,16 @@
         ]
     },
     "6008": {
-        "name": "Unexpected Shutdown",
+        "name": "Previous shutdown was unexpected",
         "sources": [
             "EventLog"
         ],
         "cause": "System was not properly shut down",
         "severity": 85,
         "solutions": [
-            "Review hardware",
-            "Check UPS",
-            "Check power source"
+            "Look at the same time for Event 41 (Kernel-Power) and Event 1001 (blue screen): 1001 means a crash; 41 with no 1001 usually means power loss or a forced power-off.",
+            "Event 1074 just before means someone or something restarted it on purpose, so this is not a fault.",
+            "If it repeats: check the power supply/UPS and mains, then drivers and hardware (RAM, disk)."
         ]
     },
     "6013": {
@@ -556,9 +558,11 @@
         "cause": "A service could not start",
         "severity": 55,
         "solutions": [
-            "Read the error in the event text",
-            "Check the service account and its dependencies",
-            "Review events from the service's own provider"
+            "Read the reason in the event text; it names the cause.",
+            "\"Did not respond in a timely fashion\": the service was too slow to start. Check load at boot; as a workaround raise ServicesPipeTimeout (HKLM\\SYSTEM\\CurrentControlSet\\Control, DWORD in milliseconds; default 30000) a little at a time, then restart.",
+            "\"Logon failure\": the service account's password changed or it lacks the 'Log on as a service' right (check secpol.msc and Group Policy).",
+            "\"The system cannot find the file specified\" or \"Access is denied\": the service program is missing, renamed or blocked; repair the application and check file permissions.",
+            "Check events from the service's own provider and the Application log at the same time."
         ]
     },
     "7001": {
@@ -733,14 +737,17 @@
         ]
     },
     "10016": {
-        "name": "DistributedCOM",
+        "name": "DCOM permission warning (normally harmless)",
         "sources": [
             "Microsoft-Windows-DistributedCOM"
         ],
-        "cause": "Permission issue",
-        "severity": 35,
+        "cause": "A Windows component asked for a DCOM permission it does not have. Microsoft documents this as expected, by-design behavior: the code retries with other parameters and succeeds",
+        "severity": 10,
         "solutions": [
-            "Review DCOM permissions"
+            "Usually nothing to do: Microsoft says these events can be safely ignored.",
+            "Do not change DCOM permissions just to silence it; Microsoft does not recommend that and it can cause side effects.",
+            "Investigate only if an application or service fails at the same time; the APPID and CLSID in the event identify the component.",
+            "To hide them from view, filter them out in Event Viewer (or use --exclude-event-ids 10016 in this tool)."
         ]
     },
     "36874": {

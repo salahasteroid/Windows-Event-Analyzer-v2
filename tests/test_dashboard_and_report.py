@@ -108,3 +108,63 @@ class DashboardTests(TestCase):
         html = self.build(trends={"available": False, "message": "Starting point."})
 
         self.assertIn("Starting point.", html)
+
+
+class ReportLayoutTests(TestCase):
+
+    def render(self, events):
+        with TemporaryDirectory() as directory:
+            generate_html_report(events, output_dir=directory)
+            return (Path(directory) / "event_report.html").read_text(encoding="utf-8")
+
+    def event(self, event_id, severity, count_time, **analysis):
+        event = report_event(dict(
+            BASE_ANALYSIS, severity=severity, name=f"Problem {event_id}",
+            severity_text="HIGH" if severity >= 70 else "LOW",
+            solutions=["Do the first thing"], **analysis))
+        event["EventID"] = event_id
+        event["Time"] = count_time
+        return event
+
+    def test_one_card_per_problem_worst_first_with_count(self):
+        events = [
+            self.event(1, 10, "2026-11-14T10:00:00Z"),
+            self.event(2, 90, "2026-11-14T09:00:00Z"),
+            self.event(1, 10, "2026-11-14T11:00:00Z"),
+        ]
+        html = self.render(events)
+
+        self.assertEqual(html.count('<article class="card'), 2)
+        self.assertLess(html.index("Problem 2"), html.index("Problem 1"))
+        self.assertIn("seen 2 times", html)
+        self.assertIn("Do the first thing", html)
+        self.assertIn("Start here", html)
+
+    def test_confidence_and_alternatives_are_shown_and_links_checked(self):
+        html = self.render([self.event(
+            1, 90, "2026-11-14T09:00:00Z",
+            online_lookup={
+                "status": "found", "title": "Article", "summary": "S",
+                "url": "https://learn.microsoft.com/a", "confidence": "medium",
+                "confidence_note": "Check it fits.",
+                "alternatives": [
+                    {"title": "Other", "url": "https://learn.microsoft.com/b"},
+                    {"title": "Bad", "url": "javascript:alert(1)"},
+                ],
+            })])
+
+        self.assertIn("Related - check it fits", html)
+        self.assertIn("Check it fits.", html)
+        self.assertIn('href="https://learn.microsoft.com/b"', html)
+        self.assertNotIn("javascript:", html)
+
+    def test_offline_message_is_friendly(self):
+        html = self.render([self.event(
+            1, 90, "2026-11-14T09:00:00Z",
+            online_lookup={"status": "error", "error": "timed out"})])
+
+        self.assertIn("Could not reach Microsoft Learn", html)
+        self.assertIn("timed out", html)
+
+    def test_no_events_gives_a_message(self):
+        self.assertIn("No events matched", self.render([]))

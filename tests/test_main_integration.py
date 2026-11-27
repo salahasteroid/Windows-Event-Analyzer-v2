@@ -252,7 +252,7 @@ class MainEndToEndTests(TestCase):
             self.assertIn("unknown_events_template.json", names)
             self.assertIn("dashboard.html", names)
             self.assertNotIn("7000", (Path(directory) / "events.csv").read_text("utf-8-sig").split("\n", 1)[1])
-            self.assertIn("Summary of repeated events",
+            self.assertIn("2 times",
                           (Path(directory) / "event_report.html").read_text("utf-8"))
             self.assertEqual(result["computer"], "local")
 
