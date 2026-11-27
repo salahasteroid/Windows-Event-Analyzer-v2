@@ -628,13 +628,28 @@ event-level filter.
 
 ## event_report.html
 
-Detailed event report including:
+One card per kind of problem (same provider, Event ID and level), worst first,
+with a "Start here" list at the top:
 
-- Event ID, Source, Level, Computer and Time
-- Severity and cause
-- Event Data
-- Every error code found, with its description
-- Microsoft Learn explanation, when found
+- **What it means** and **What to do**, from the built-in database
+- **What Microsoft says**: the best matching Microsoft Learn article, with a
+  label showing how well it fits (see below)
+- **Technical details** (collapsed): message, every error code found, the event
+  data with plain-language hints, computer, log and time of the latest
+  occurrence
+
+Repeated events are counted instead of listed again; the exact times are in
+`events.csv` / `events.json` when you export them.
+
+**How the Microsoft Learn match is chosen.** Only Microsoft documentation is
+used; community forum posts are ignored. An article is labeled *Matches this
+event* when its title names the Event ID and it is about the same provider,
+*Related - check it fits* when it names the Event ID but may be about a
+specific product (generic IDs such as 7000 are reused by SQL Server, Intune
+and others), and *Possibly related* when the ID appears only in its text.
+Up to two other articles are listed. The built-in advice is checked against
+Microsoft's guidance; for example Event 10016 is documented by Microsoft as
+harmless and by design, so the report says not to change DCOM permissions.
 
 ## dashboard.html
 

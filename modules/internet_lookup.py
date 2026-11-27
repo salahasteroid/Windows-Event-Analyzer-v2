@@ -114,6 +114,37 @@ def get_search_url(event_id, source):
     return f"{_SEARCH_PAGE}?{urlencode({'terms': query})}"
 
 
+_PROVIDER_ALIASES = {
+    "distributedcom": ("dcom", "distributed com"),
+    "eventlog": ("event log",),
+    "service control manager": ("service control manager", "scm"),
+    "user32": ("user32", "shutdown"),
+}
+
+# Products whose own articles reuse generic Event IDs such as 7000 or 7023.
+_PRODUCT_WORDS = (
+    "sql server", "intune", "exchange", "sharepoint", "azure", "biztalk",
+    "configuration manager", "sccm", "dynamics", "skype", "lync",
+    "office", "outlook", "teams", "adfs", "ad fs", "gmsa", "citrix",
+)
+
+
+def _provider_tokens(source):
+    """Words that show an article is about the provider that logged it."""
+
+    name = re.sub(r"^microsoft-windows-", "", str(source), flags=re.I)
+    name = name.replace("-", " ").strip().casefold()
+
+    if not name:
+        return ()
+
+    tokens = {name, name.replace(" ", "-"), name.replace(" ", "")}
+    tokens.update(_PROVIDER_ALIASES.get(name.replace(" ", ""), ()))
+    tokens.update(_PROVIDER_ALIASES.get(name, ()))
+
+    return tuple(token for token in tokens if len(token) >= 3)
+
+
 def _is_event_match(result, event_id):
     title = str(result.get("title", ""))
     return re.search(
@@ -121,6 +152,92 @@ def _is_event_match(result, event_id):
         title,
         re.IGNORECASE
     ) is not None
+
+
+def _is_community_post(url):
+    """Q&A and forum threads are user posts, not Microsoft documentation."""
+
+    path = urlsplit(url).path.casefold()
+
+    return path.startswith(("/answers", "/en-us/answers", "/archive"))
+
+
+CONFIDENCE_NOTES = {
+    "high": (
+        "Microsoft documentation about this Event ID and this event source."
+    ),
+    "medium": (
+        "Microsoft documentation that mentions this Event ID. It may be "
+        "about a specific product or situation, so check that it fits."
+    ),
+    "low": (
+        "Possibly related Microsoft documentation. The Event ID is not in "
+        "the title, so it may not apply."
+    ),
+}
+
+
+def rank_results(results, event_id, source):
+    """Official Microsoft Learn results, best match first.
+
+    Each item is {"title", "summary", "url", "confidence"} where confidence
+    is "high", "medium" or "low". Forum posts are left out. An article about
+    a different product (SQL Server, Intune...) is never "high".
+    """
+
+    tokens = _provider_tokens(source)
+    source_text = str(source).casefold()
+    ranked = []
+
+    for result in results:
+
+        if not isinstance(result, dict):
+            continue
+
+        url = _get_official_url(result.get("url"))
+
+        if not url or _is_community_post(url):
+            continue
+
+        title = str(result.get("title", "")).strip()
+        description = str(result.get("description", "")).strip()
+        text = f"{title} {description} {url}".casefold()
+
+        id_in_title = _is_event_match(result, event_id)
+        id_in_text = re.search(
+            rf"\b(?:event\s+)?(?:id\s+)?{re.escape(str(event_id))}\b",
+            f"{title} {description}",
+            re.IGNORECASE
+        ) is not None
+        provider_hit = any(token in text for token in tokens)
+        other_product = any(
+            word in title.casefold() and word not in source_text
+            for word in _PRODUCT_WORDS
+        )
+
+        if id_in_title and provider_hit and not other_product:
+            confidence, score = "high", 3
+        elif id_in_title:
+            confidence, score = "medium", 2 - (1 if other_product else 0) * 0.5
+        elif id_in_text and provider_hit:
+            confidence, score = "low", 1
+        else:
+            continue
+
+        ranked.append({
+            "title": title,
+            "summary": description,
+            "url": url,
+            "confidence": confidence,
+            "_score": score,
+        })
+
+    ranked.sort(key=lambda item: -item["_score"])
+
+    for item in ranked:
+        del item["_score"]
+
+    return ranked
 
 
 def _get_official_url(value):
@@ -212,48 +329,37 @@ def lookup_event(event_id, source):
     if not isinstance(results, list):
         results = []
 
-    matching_results = [
-        result
-        for result in results
-        if isinstance(result, dict)
-        and _is_event_match(result, event_id)
-        and _get_official_url(result.get("url"))
-    ]
+    ranked = rank_results(results, event_id, source)
 
-    if not matching_results:
+    if not ranked:
         return {
             "status": "no_match",
             "search_url": search_url
         }
 
-    result = matching_results[0]
-    summary = str(result.get("description", "")).strip()
-    summary = re.split(
-        r"\s+Summarize this article for me\b",
-        summary,
-        maxsplit=1,
-        flags=re.IGNORECASE
-    )[0].strip()
-    summary = re.split(
-        r"\s+In this article\b",
-        summary,
-        maxsplit=1,
-        flags=re.IGNORECASE
-    )[0].strip()
+    best = ranked[0]
+    summary = best["summary"]
+    for marker in (r"\s+Summarize this article for me\b", r"\s+In this article\b"):
+        summary = re.split(marker, summary, maxsplit=1, flags=re.IGNORECASE)[0].strip()
 
     if len(summary) > _MAX_SUMMARY_LENGTH:
         summary = summary[:_MAX_SUMMARY_LENGTH].rsplit(" ", 1)[0] + "..."
 
-    article_url = _get_official_url(result.get("url"))
-    article_guidance = _read_article_guidance(article_url)
+    article_guidance = _read_article_guidance(best["url"])
     if article_guidance.get("article_description"):
         summary = article_guidance["article_description"]
 
     return {
         "status": "found",
-        "title": str(result.get("title", "")).strip(),
+        "title": best["title"],
         "summary": summary,
-        "url": article_url,
+        "url": best["url"],
+        "confidence": best["confidence"],
+        "confidence_note": CONFIDENCE_NOTES[best["confidence"]],
+        "alternatives": [
+            {"title": item["title"], "url": item["url"]}
+            for item in ranked[1:3]
+        ],
         "search_url": search_url,
         "provider": "Microsoft Learn",
         **article_guidance
