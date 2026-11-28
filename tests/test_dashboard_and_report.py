@@ -168,3 +168,15 @@ class ReportLayoutTests(TestCase):
 
     def test_no_events_gives_a_message(self):
         self.assertIn("No events matched", self.render([]))
+
+
+class ReportInsightsTests(TestCase):
+
+    def test_event_specific_findings_are_shown_and_escaped(self):
+        analysis = dict(BASE_ANALYSIS, insights=["Service <b>X</b> failed."])
+        with TemporaryDirectory() as directory:
+            generate_html_report([report_event(analysis)], output_dir=directory)
+            html = (Path(directory) / "event_report.html").read_text(encoding="utf-8")
+
+        self.assertIn("What this event says", html)
+        self.assertIn("Service &lt;b&gt;X&lt;/b&gt; failed.", html)

@@ -341,6 +341,14 @@ def _card_html(group, number):
         "Search Microsoft Learn yourself",
     )
 
+    insights = analysis.get("insights") or []
+    insights_html = (
+        "<h4>What this event says</h4><ul>"
+        + "".join(f"<li>{_text(item)}</li>" for item in insights)
+        + "</ul>"
+        if insights else ""
+    )
+
     basis = analysis.get("severity_basis")
     basis_html = (
         f'<p class="note">Severity: {_text(basis)}.</p>' if basis else ""
@@ -358,6 +366,7 @@ def _card_html(group, number):
   <h4>What it means</h4>
   <p>{_text(analysis.get('cause', ''))}</p>
   {basis_html}
+  {insights_html}
   {solutions_html}
   <h4>What Microsoft says</h4>
   <div class="learn">{_online_html(online_lookup)}

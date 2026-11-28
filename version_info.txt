@@ -4,8 +4,8 @@
 # > Details). Keep the version in step with modules/version.py.
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=(2, 2, 0, 0),
-    prodvers=(2, 2, 0, 0),
+    filevers=(2, 3, 0, 0),
+    prodvers=(2, 3, 0, 0),
     mask=0x3f,
     flags=0x0,
     OS=0x40004,
@@ -20,11 +20,11 @@ VSVersionInfo(
         [
           StringStruct('CompanyName', 'Salah Mohammed'),
           StringStruct('FileDescription', 'Windows Event Analyzer'),
-          StringStruct('FileVersion', '2.2.0.0'),
+          StringStruct('FileVersion', '2.3.0.0'),
           StringStruct('InternalName', 'WindowsEventAnalyzer'),
           StringStruct('OriginalFilename', 'WindowsEventAnalyzer.exe'),
           StringStruct('ProductName', 'Windows Event Analyzer'),
-          StringStruct('ProductVersion', '2.2.0.0')
+          StringStruct('ProductVersion', '2.3.0.0')
         ]
       )
     ]),

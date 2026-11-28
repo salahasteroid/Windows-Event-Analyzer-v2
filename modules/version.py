@@ -4,4 +4,4 @@ Keep version_info.txt (the Windows file properties of the .exe) in step
 with this number when releasing.
 """
 
-__version__ = "2.2.0"
+__version__ = "2.3.0"

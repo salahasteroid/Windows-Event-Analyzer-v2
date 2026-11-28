@@ -156,6 +156,7 @@ EventAnalyzer
 │   ├── dashboard_charts.py      SVG charts for the dashboard
 │   ├── dashboard_generator.py   dashboard.html
 │   ├── database_loader.py       Loads and caches the JSON databases, custom folder
+│   ├── diagnostics.py           Support file written when a run fails
 │   ├── event_catalog.py         Finds a definition by Event ID and provider
 │   ├── event_channels.py        Supported logs (System, Application, Security)
 │   ├── event_data.py            Event Data field names and plain-language hints
@@ -166,6 +167,7 @@ EventAnalyzer
 │   ├── evtx_reader.py           Offline EVTX reader
 │   ├── exporters.py             CSV, JSON, combined XML and syslog output
 │   ├── health_score.py          Health score and its breakdown
+│   ├── insights.py              Findings read from each event's own data
 │   ├── internet_lookup.py       Microsoft Learn lookup
 │   ├── message_formatter.py     Message text from the provider's message tables
 │   ├── paths.py                 Program, reports and user-data folders
@@ -345,6 +347,29 @@ to a syslog/SIEM server as an RFC 5424 message. Excel `.xlsx` is not
 produced; the CSV file is meant for that. For a PDF, open `event_report.html`
 or `dashboard.html` and use the browser's *Print to PDF* (print styles are
 included).
+
+## Event-specific findings and support file
+
+Besides the general advice for an Event ID, the report card has a **What this
+event says** section built from that event's own data: the blue-screen code
+and its name (Event 41), the service involved and the reason Windows gave
+(7000, 7001, 7009, 7011, 7023, 7024, 7031, 7034), newly installed services and
+whether they run from a suspicious folder (7045), the account, source address
+and reason of a failed logon (4625), the computer behind an account lockout
+(4740) and the component behind a DCOM warning (10016).
+
+If an analysis fails, the window shows the actual error and writes
+`diagnostics.txt` next to `error.log` in the reports folder (version, Windows,
+whether pywin32 is available, database size, the error). It contains no
+passwords, computer lists or event contents, so it is safe to send to support.
+
+## Automatic builds
+
+`.github/workflows/build.yml` runs the tests on Windows, builds the `.exe`,
+starts it once as a smoke test and uploads it with a SHA-256 checksum. Pushing
+a tag such as `v2.3.0` also publishes a GitHub release. Signing is not part of
+the workflow (it needs your certificate); sign locally with `build.bat` or add
+the certificate as a repository secret.
 
 ## Command line and scheduled runs
 

@@ -14,6 +14,7 @@ from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from pathlib import Path
 
+from modules.diagnostics import write_diagnostics
 from modules.event_channels import SUPPORTED_LOGS
 from modules.event_filter import parse_event_ids, split_list
 from modules.exporters import normalize_export_formats
@@ -293,6 +294,15 @@ def _run(argv, analyze, environ, smtp_class):
                             "error": None if summary else "no result"})
         except Exception as error:
             print(f"{name}: failed - {error}")
+            try:
+                import traceback
+
+                path = write_diagnostics(
+                    reports_dir, traceback.format_exc(), {"Computer": name}
+                )
+                print(f"Support file: {path}")
+            except OSError:
+                pass
             results.append({"computer": name, "summary": None,
                             "error": str(error)})
 

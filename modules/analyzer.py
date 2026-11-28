@@ -8,6 +8,7 @@ from modules.event_catalog import (
 from database.error_code_lookup import get_error_info
 from modules.internet_lookup import lookup_event
 from modules.event_data import get_event_data_value
+from modules.insights import event_insights
 
 
 _HEX_START = re.compile(r"^0[xX][0-9a-fA-F]+")
@@ -165,6 +166,8 @@ def analyze_event(event, online_lookup=None):
         }
 
     result["online_lookup"] = online_lookup
+
+    result["insights"] = event_insights(event)
 
     error_codes = find_error_codes(event)
 

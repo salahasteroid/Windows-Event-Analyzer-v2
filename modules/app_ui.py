@@ -22,6 +22,7 @@ from tkinter import (
 )
 from tkinter.scrolledtext import ScrolledText
 
+from modules.diagnostics import short_error, write_diagnostics
 from modules.event_channels import SUPPORTED_LOGS
 from modules.paths import get_reports_dir
 from modules.remote_check import check_remote_connection
@@ -664,8 +665,18 @@ class EventAnalyzerApp:
                 reports_dir.mkdir(parents=True, exist_ok=True)
                 error_path = reports_dir / "error.log"
                 error_path.write_text(error_details, encoding="utf-8")
+                diagnostics_path = write_diagnostics(
+                    reports_dir,
+                    error_details,
+                    {"Logs": ", ".join(self._logs())},
+                )
+                self.last_error_summary = (
+                    f"{short_error(error_details)}\n\n"
+                    f"Support file: {diagnostics_path}"
+                )
                 self.output_queue.put(
-                    ("output", f"\nError details saved to {error_path}\n")
+                    ("output", f"\nError details saved to {error_path}\n"
+                               f"Support file: {diagnostics_path}\n")
                 )
             except OSError as log_error:
                 self.output_queue.put(
@@ -948,12 +959,16 @@ class EventAnalyzerApp:
                     self.status.set(
                         "Analysis failed. See the error details below."
                     )
+                    summary = self.__dict__.get("last_error_summary")
                     messagebox.showerror(
                         "Analysis failed",
-                        "Event analysis failed. Details are shown in the "
-                        "output and saved to reports\\error.log when possible.",
+                        "Event analysis failed."
+                        + (f"\n\n{summary}" if summary else "")
+                        + "\n\nDetails are shown in the output and saved "
+                        "to reports\\error.log when possible.",
                         parent=self.root,
                     )
+                    self.last_error_summary = None
 
         self.root.after(100, self.poll_output)
 

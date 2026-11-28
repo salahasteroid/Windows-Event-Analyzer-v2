@@ -1,0 +1,61 @@
+name: Build and test
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements-build.txt
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements-build.txt pytest
+
+      - name: Run tests
+        run: python -m pytest -q tests
+
+      - name: Build the executable
+        run: python -m PyInstaller --noconfirm WindowsEventAnalyzer.spec
+
+      - name: Smoke test the executable
+        shell: pwsh
+        run: |
+          # The exe has no console, so wait for it and read its log file.
+          $p = Start-Process .\dist\WindowsEventAnalyzer.exe -ArgumentList "--version" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "exe --version exited with $($p.ExitCode)" }
+          $log = Join-Path $env:LOCALAPPDATA "WindowsEventAnalyzer\last_run.log"
+          Get-Content $log
+          if (-not (Select-String -Path $log -Pattern "^\d+\.\d+\.\d+")) { throw "no version in last_run.log" }
+
+      - name: Checksum
+        shell: pwsh
+        run: |
+          (Get-FileHash dist\WindowsEventAnalyzer.exe -Algorithm SHA256).Hash |
+            Out-File -Encoding ascii dist\WindowsEventAnalyzer.exe.sha256
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WindowsEventAnalyzer
+          path: |
+            dist/WindowsEventAnalyzer.exe
+            dist/WindowsEventAnalyzer.exe.sha256
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/WindowsEventAnalyzer.exe
+            dist/WindowsEventAnalyzer.exe.sha256
